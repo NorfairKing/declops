@@ -15,13 +15,11 @@ import Test.Syd.Validity
 
 spec :: Spec
 spec = do
-  describe "tempDirProvider" $
-    tempDirSpec "declops-temp-dir-provider-test" $
-      localProviderSpec
-        tempDirProvider
-        (\tdir -> ((</>) <$> pure tdir <*> genValid))
-        (\tdir -> TempDirInputs tdir <$> elements ["foo", "bar", "quux"])
-  pure ()
+  tempDirSpec "declops-temp-dir-provider-test" $
+    localProviderSpec
+      tempDirProvider
+      (\tdir -> ((</>) <$> pure tdir <*> genValid))
+      (\tdir -> TempDirInputs tdir <$> elements ["foo", "bar", "quux"])
 
 localProviderSpec ::
   forall input reference output i.
@@ -110,7 +108,7 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
                 applyResult2 <- providerApply input2 (ExistsLocallyAndRemotely reference1 output1)
                 case applyResult2 of
                   ApplyFailure err -> expectationFailure err
-                  ApplySuccess reference2 output2 -> pure ()
+                  ApplySuccess _ _ -> pure ()
 
       it "can re-create a resource that exists locally but not remotely" $ \i ->
         forAll (genReference i) $ \reference1 ->
@@ -118,14 +116,14 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
             applyResult <- providerApply input (ExistsLocallyButNotRemotely reference1)
             case applyResult of
               ApplyFailure err -> expectationFailure err
-              ApplySuccess reference2 output -> pure ()
+              ApplySuccess _ _ -> pure ()
 
       it "passes the check after applying" $ \i ->
         forAll (genInput i) $ \input -> do
           applyResult <- providerApply input DoesNotExistLocallyNorRemotely
           case applyResult of
             ApplyFailure err -> expectationFailure err
-            ApplySuccess reference output -> do
+            ApplySuccess _ output -> do
               checkResult <- providerCheck input output
               case checkResult of
                 CheckFailure err -> expectationFailure err
@@ -157,7 +155,7 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
             applyResult <- providerApply input (ExistsLocallyButNotRemotely reference1)
             case applyResult of
               ApplyFailure err -> expectationFailure err
-              ApplySuccess reference2 output -> do
+              ApplySuccess _ output -> do
                 checkResult <- providerCheck input output
                 case checkResult of
                   CheckFailure err -> expectationFailure err
@@ -170,7 +168,7 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
           applyResult <- providerApply input DoesNotExistLocallyNorRemotely
           case applyResult of
             ApplyFailure err -> expectationFailure err
-            ApplySuccess reference output -> do
+            ApplySuccess _ output -> do
               -- Tests start here
               checkResult1 <- providerCheck input output
               checkResult2 <- providerCheck input output
@@ -260,15 +258,15 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
       forAll (genInput i) $ \input1 -> do
         forAll (genInput i) $ \input2 -> do
           -- Apply
-          applyResult <- providerApply input1 DoesNotExistLocallyNorRemotely
-          case applyResult of
+          applyResult1 <- providerApply input1 DoesNotExistLocallyNorRemotely
+          case applyResult1 of
             ApplyFailure err -> expectationFailure err
             ApplySuccess reference1 output1 ->
               let ctxAfterFirst = unlines ["After first apply;", "reference:", ppShow reference1, "output:", ppShow output1]
                in context ctxAfterFirst $ do
                     -- Query
-                    remoteState <- providerQuery reference1
-                    case remoteState of
+                    remoteState1 <- providerQuery reference1
+                    case remoteState1 of
                       DoesNotExistRemotely -> expectationFailure "should have existed remotely"
                       ExistsRemotely output -> output `shouldBe` output1
 
@@ -279,15 +277,15 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
                       CheckSuccess -> pure ()
 
                     -- Change
-                    applyResult <- providerApply input2 (ExistsLocallyAndRemotely reference1 output1)
-                    case applyResult of
+                    applyResult2 <- providerApply input2 (ExistsLocallyAndRemotely reference1 output1)
+                    case applyResult2 of
                       ApplyFailure err -> expectationFailure err
                       ApplySuccess reference2 output2 ->
                         let ctxAfterSecond = unlines ["After second apply;", "reference:", ppShow reference2, "output:", ppShow output2]
                          in context ctxAfterSecond $ do
                               -- Query again
-                              remoteState <- providerQuery reference2
-                              case remoteState of
+                              remoteState2 <- providerQuery reference2
+                              case remoteState2 of
                                 DoesNotExistRemotely -> expectationFailure "should still have existed remotely"
                                 ExistsRemotely output -> output `shouldBe` output2
 
