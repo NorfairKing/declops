@@ -6,9 +6,15 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+    - path
+    - path-io
+    - text
+    - validity
+    - validity-path
 
 executables:
-  declops-exe:
+  declops:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -20,11 +26,19 @@ executables:
 
 tests:
   declops-test:
-    main:                Spec.hs
-    source-dirs:         test
+    main: Spec.hs
+    build-tools: sydtest-discover
+    source-dirs: test
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - QuickCheck
     - declops
+    - genvalidity-path
+    - genvalidity-sydtest
+    - path
+    - path-io
+    - sydtest
+    - text

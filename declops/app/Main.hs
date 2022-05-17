@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import Declops
 
 main :: IO ()
-main = someFunc
+main = declopsMain
