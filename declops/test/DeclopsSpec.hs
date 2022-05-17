@@ -4,9 +4,9 @@
 module DeclopsSpec (spec) where
 
 import Data.GenValidity.Path ()
-import Data.Proxy
 import qualified Data.Text as T
 import Declops
+import Declops.Provider
 import Path
 import Test.QuickCheck
 import Test.Syd

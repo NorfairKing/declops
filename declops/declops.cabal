@@ -11,6 +11,7 @@ build-type:     Simple
 library
   exposed-modules:
       Declops
+      Declops.Provider
   other-modules:
       Paths_declops
   hs-source-dirs:
