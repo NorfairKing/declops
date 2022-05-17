@@ -4,7 +4,6 @@
 
 module Declops.Command.Apply (declopsApply) where
 
-import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson as JSON
@@ -19,14 +18,12 @@ import Declops.OptParse
 import Declops.Provider
 import Declops.Provider.TempDir
 import Path
-import Path.IO
 import System.Exit
 
-declopsApply :: ApplySettings -> IO ()
-declopsApply _ = do
-  databaseFile <- resolveFile' "declops-state.sqlite3"
+declopsApply :: Settings -> IO ()
+declopsApply Settings {..} = do
   runStderrLoggingT $
-    withSqlitePool (T.pack (fromAbsFile databaseFile)) 1 $ \pool -> do
+    withSqlitePool (T.pack (fromAbsFile settingStateFile)) 1 $ \pool -> do
       runSqlPool (runMigration localMigration) pool
       let (name, tempDirSpec) = sampleConfig
       mLocalResource <- runSqlPool (getBy $ UniqueResource name (providerName tempDirProvider)) pool
@@ -46,18 +43,19 @@ declopsApply _ = do
         case applyResult of
           ApplyFailure err -> die err
           ApplySuccess reference output -> do
-            runSqlPool
-              ( upsertBy
-                  (UniqueResource name (providerName tempDirProvider))
-                  ( Resource
-                      { resourceName = name,
-                        resourceProvider = providerName tempDirProvider,
-                        resourceReference = toJSON reference
-                      }
-                  )
-                  [ResourceReference =. toJSON reference]
-              )
-              pool
+            _ <-
+              runSqlPool
+                ( upsertBy
+                    (UniqueResource name (providerName tempDirProvider))
+                    ( Resource
+                        { resourceName = name,
+                          resourceProvider = providerName tempDirProvider,
+                          resourceReference = toJSON reference
+                        }
+                    )
+                    [ResourceReference =. toJSON reference]
+                )
+                pool
             print (reference, output)
 
 sampleConfig :: (Text, TempDirSpecification)

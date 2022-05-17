@@ -22,7 +22,6 @@ import qualified Data.ByteString.Lazy as LB
 import Data.Proxy
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import Database.Persist.Sqlite
 import Database.Persist.TH
 import GHC.Generics (Generic)

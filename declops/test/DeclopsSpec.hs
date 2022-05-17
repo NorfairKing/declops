@@ -5,8 +5,8 @@ module DeclopsSpec (spec) where
 
 import Data.GenValidity.Path ()
 import qualified Data.Text as T
-import Declops
 import Declops.Provider
+import Declops.Provider.TempDir
 import Path
 import Test.QuickCheck
 import Test.Syd
@@ -19,7 +19,7 @@ spec = do
     localProviderSpec
       tempDirProvider
       (\tdir -> (</>) tdir <$> genValid)
-      (\tdir -> TempDirInputs tdir <$> elements ["foo", "bar", "quux"])
+      (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])
 
 localProviderSpec ::
   forall input reference output i.

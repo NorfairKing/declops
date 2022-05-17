@@ -7,7 +7,6 @@ module Declops.Provider.TempDir where
 import Data.List
 import Data.Validity
 import Data.Validity.Path ()
-import Declops.OptParse
 import Declops.Provider
 import GHC.Generics (Generic)
 import Path

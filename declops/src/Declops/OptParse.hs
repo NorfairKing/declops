@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -10,7 +9,7 @@ module Declops.OptParse where
 import Autodocodec
 import Autodocodec.Yaml
 import Control.Applicative
-import Data.Text (Text)
+import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Data.Yaml (FromJSON, ToJSON)
@@ -33,6 +32,8 @@ getInstructions = do
   combineToInstructions args env config
 
 data Settings = Settings
+  { settingStateFile :: !(Path Abs File)
+  }
   deriving (Show, Eq, Generic)
 
 data Dispatch
@@ -44,15 +45,25 @@ data ApplySettings = ApplySettings
 
 combineToInstructions :: Arguments -> Environment -> Maybe Configuration -> IO Instructions
 combineToInstructions (Arguments cmd Flags {..}) Environment {..} mConf = do
-  pure $ Instructions (DispatchApply ApplySettings) Settings
+  settingStateFile <-
+    resolveFile' $
+      fromMaybe "declops-state.sqlite3" $
+        flagStateFile <|> envStateFile <|> (mConf >>= configStateFile)
+  dispatch <- case cmd of
+    CommandApply ApplyArgs -> pure $ DispatchApply ApplySettings
+  pure $ Instructions dispatch Settings {..}
 
 data Configuration = Configuration
+  { configStateFile :: !(Maybe FilePath)
+  }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec Configuration)
 
 instance HasCodec Configuration where
   codec =
-    object "Configuration" $ pure Configuration
+    object "Configuration" $
+      Configuration
+        <$> optionalField "state-file" "where to store deployment state" .= configStateFile
 
 getConfiguration :: Flags -> Environment -> IO (Maybe Configuration)
 getConfiguration Flags {..} Environment {..} =
@@ -64,11 +75,12 @@ getConfiguration Flags {..} Environment {..} =
 
 defaultConfigFile :: IO (Path Abs File)
 defaultConfigFile = do
-  xdgConfigDir <- getXdgDir XdgConfig (Just [reldir|foo-bar|])
-  resolveFile xdgConfigDir "config.yaml"
+  here <- getCurrentDir
+  resolveFile here "declops-config.yaml"
 
 data Environment = Environment
-  { envConfigFile :: !(Maybe FilePath)
+  { envConfigFile :: !(Maybe FilePath),
+    envStateFile :: !(Maybe FilePath)
   }
   deriving (Show, Eq, Generic)
 
@@ -79,9 +91,8 @@ environmentParser :: Env.Parser Env.Error Environment
 environmentParser =
   Env.prefixed "DECLOPS_" $
     Environment
-      <$> Env.var (fmap Just . Env.str) "CONFIG_FILE" (mE <> Env.help "Config file")
-  where
-    mE = Env.def Nothing <> Env.keep
+      <$> Env.var (fmap Just . Env.str) "CONFIG_FILE" (Env.def Nothing <> Env.help "Config file")
+      <*> Env.var (fmap Just . Env.str) "STATE_FILE" (Env.def Nothing <> Env.help "Config file")
 
 -- | The combination of a command with its specific flags and the flags for all commands
 data Arguments
@@ -134,8 +145,6 @@ parseCommand =
 
 -- | One type per command, for the command-specific arguments
 data ApplyArgs = ApplyArgs
-  { applyArgApplying :: Maybe Text
-  }
   deriving (Show, Eq, Generic)
 
 -- | One 'optparse-applicative' parser for each command's flags
@@ -143,21 +152,12 @@ parseCommandApply :: OptParse.ParserInfo ApplyArgs
 parseCommandApply = OptParse.info parser modifier
   where
     modifier = OptParse.fullDesc <> OptParse.progDesc "Apply the user"
-    parser =
-      ApplyArgs
-        <$> optional
-          ( strOption
-              ( mconcat
-                  [ long "applying",
-                    help "What to say when applying",
-                    metavar "APPLYING"
-                  ]
-              )
-          )
+    parser = pure ApplyArgs
 
 -- | The flags that are common across commands.
 data Flags = Flags
-  { flagConfigFile :: !(Maybe FilePath)
+  { flagConfigFile :: !(Maybe FilePath),
+    flagStateFile :: !(Maybe FilePath)
   }
   deriving (Show, Eq, Generic)
 
@@ -169,7 +169,16 @@ parseFlags =
       ( strOption
           ( mconcat
               [ long "config-file",
-                help "Give the path to an altenative config file",
+                help "Path to an altenative config file",
+                metavar "FILEPATH"
+              ]
+          )
+      )
+    <*> optional
+      ( strOption
+          ( mconcat
+              [ long "state-file",
+                help "Path to an altenative state file",
                 metavar "FILEPATH"
               ]
           )
