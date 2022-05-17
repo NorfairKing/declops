@@ -9,7 +9,7 @@ import GHC.Generics (Generic)
 --
 -- A provider has three type parameters:
 --
--- * An input type, to declaratively specify what the resource should look like.
+-- * An specification type, to declaratively specify what the resource should look like.
 -- * A reference type, to refer to the resource in the local declops database.
 -- * An output type, to contain all the information about the remote resource.
 --
@@ -19,17 +19,17 @@ import GHC.Generics (Generic)
 --
 -- * A name, to reference it.
 -- * A query function, to find out if the resource with the given local reference still exists remotely.
--- * An apply function, to apply the current input to reality
+-- * An apply function, to apply the current specification to reality
 -- * A check function, to find out if the remote resource still looks like what it should and works as it should.
 -- * A destroy function, to destroy a resource
 --
 -- Each of these functions MUST be idempotent so that they can be retried.
 -- Getting them all right is not an easy thing to do, which is why we provide a test suite.
-data Provider input reference output = Provider
+data Provider specification reference output = Provider
   { providerName :: !Text,
     providerQuery :: !(reference -> IO (RemoteState output)),
-    providerApply :: !(input -> ApplyContext reference output -> IO (ApplyResult reference output)),
-    providerCheck :: !(input -> output -> IO CheckResult),
+    providerApply :: !(specification -> ApplyContext reference output -> IO (ApplyResult reference output)),
+    providerCheck :: !(specification -> output -> IO CheckResult),
     providerDestroy :: !(reference -> RemoteState output -> IO DestroyResult)
   }
   deriving (Generic)

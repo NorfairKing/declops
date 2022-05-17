@@ -13,15 +13,15 @@ import GHC.Generics (Generic)
 import Path
 import Path.IO
 
-data TempDirInputs = TempDirInputs
-  { tempDirInputBase :: !(Path Abs Dir),
-    tempDirInputTemplate :: !FilePath
+data TempDirSpecification = TempDirSpecification
+  { tempDirSpecificationBase :: !(Path Abs Dir),
+    tempDirSpecificationTemplate :: !FilePath
   }
   deriving (Show, Eq, Generic)
 
-instance Validity TempDirInputs
+instance Validity TempDirSpecification
 
-tempDirProvider :: Provider TempDirInputs (Path Abs Dir) (Path Abs Dir)
+tempDirProvider :: Provider TempDirSpecification (Path Abs Dir) (Path Abs Dir)
 tempDirProvider =
   Provider
     { providerName = "temporary-directory",
@@ -32,37 +32,37 @@ tempDirProvider =
           if exists
             then ExistsRemotely output
             else DoesNotExistRemotely,
-      providerApply = \TempDirInputs {..} applyContext -> do
+      providerApply = \TempDirSpecification {..} applyContext -> do
         case applyContext of
           DoesNotExistLocallyNorRemotely -> do
-            tdir <- createTempDir tempDirInputBase tempDirInputTemplate
+            tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
             pure $ ApplySuccess tdir tdir
           ExistsLocallyButNotRemotely _ -> do
-            tdir <- createTempDir tempDirInputBase tempDirInputTemplate
+            tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
             pure $ ApplySuccess tdir tdir
           ExistsLocallyAndRemotely reference remoteDir -> do
-            let alreadyCorrect = case stripProperPrefix tempDirInputBase remoteDir of
+            let alreadyCorrect = case stripProperPrefix tempDirSpecificationBase remoteDir of
                   Nothing -> False
-                  Just subdir -> tempDirInputTemplate `isInfixOf` fromRelDir subdir
+                  Just subdir -> tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
             if alreadyCorrect
               then pure $ ApplySuccess reference remoteDir
               else do
-                tdir <- createTempDir tempDirInputBase tempDirInputTemplate
+                tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
                 pure $ ApplySuccess tdir tdir,
-      providerCheck = \input output -> do
+      providerCheck = \specification output -> do
         exists <- doesDirExist output
         pure $
           if exists
-            then case stripProperPrefix (tempDirInputBase input) output of
+            then case stripProperPrefix (tempDirSpecificationBase specification) output of
               Nothing -> CheckFailure "Directory had the wrong base."
               Just subdir ->
-                if tempDirInputTemplate input `isInfixOf` fromRelDir subdir
+                if tempDirSpecificationTemplate specification `isInfixOf` fromRelDir subdir
                   then CheckSuccess
                   else
                     CheckFailure $
                       unlines
                         [ "Directory did not have the right template:",
-                          unwords ["expected:", tempDirInputTemplate input],
+                          unwords ["expected:", tempDirSpecificationTemplate specification],
                           unwords ["actual dir:", fromAbsDir output]
                         ]
             else CheckFailure "Directory does not exist.",
