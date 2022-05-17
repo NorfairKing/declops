@@ -11,18 +11,29 @@ build-type:     Simple
 library
   exposed-modules:
       Declops
+      Declops.Command
+      Declops.Command.Apply
+      Declops.OptParse
       Declops.Provider
+      Declops.Provider.TempDir
   other-modules:
       Paths_declops
   hs-source-dirs:
       src
+  build-tool-depends:
+      autoexporter:autoexporter
   build-depends:
-      base >=4.7 && <5
+      autodocodec
+    , autodocodec-yaml
+    , base >=4.7 && <5
+    , envparse
+    , optparse-applicative
     , path
     , path-io
     , text
     , validity
     , validity-path
+    , yaml
   default-language: Haskell2010
 
 executable declops

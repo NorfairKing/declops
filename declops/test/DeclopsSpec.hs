@@ -18,7 +18,7 @@ spec = do
   tempDirSpec "declops-temp-dir-provider-test" $
     localProviderSpec
       tempDirProvider
-      (\tdir -> ((</>) <$> pure tdir <*> genValid))
+      (\tdir -> (</>) tdir <$> genValid)
       (\tdir -> TempDirInputs tdir <$> elements ["foo", "bar", "quux"])
 
 localProviderSpec ::

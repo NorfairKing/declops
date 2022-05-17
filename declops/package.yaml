@@ -6,12 +6,18 @@ dependencies:
 
 library:
   source-dirs: src
+  build-tools: autoexporter
   dependencies:
+    - autodocodec
+    - autodocodec-yaml
+    - envparse
+    - optparse-applicative
     - path
     - path-io
     - text
     - validity
     - validity-path
+    - yaml
 
 executables:
   declops:
