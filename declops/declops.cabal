@@ -13,6 +13,7 @@ library
       Declops
       Declops.Command
       Declops.Command.Apply
+      Declops.DB
       Declops.OptParse
       Declops.Provider
       Declops.Provider.TempDir
@@ -23,13 +24,19 @@ library
   build-tool-depends:
       autoexporter:autoexporter
   build-depends:
-      autodocodec
+      aeson
+    , autodocodec
     , autodocodec-yaml
     , base >=4.7 && <5
+    , bytestring
     , envparse
+    , monad-logger
     , optparse-applicative
     , path
     , path-io
+    , persistent
+    , persistent-sqlite
+    , persistent-template
     , text
     , validity
     , validity-path

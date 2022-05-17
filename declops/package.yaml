@@ -8,12 +8,18 @@ library:
   source-dirs: src
   build-tools: autoexporter
   dependencies:
+    - aeson
     - autodocodec
     - autodocodec-yaml
+    - bytestring
     - envparse
+    - monad-logger
     - optparse-applicative
     - path
     - path-io
+    - persistent
+    - persistent-sqlite
+    - persistent-template
     - text
     - validity
     - validity-path
