@@ -2,6 +2,10 @@
 
 Declarative ops
 
+## Current state
+
+Still playing around.
+Come back no sooner than when CI passes.
 
 ## Goals
 
