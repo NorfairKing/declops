@@ -32,13 +32,27 @@ instance HasCodec TempDirSpecification where
         <$> requiredFieldWith "base" (bimapCodec (left show . parseAbsDir) fromAbsDir codec) "base directory" .= tempDirSpecificationBase
         <*> requiredField "template" "template directory name" .= tempDirSpecificationTemplate
 
-tempDirProvider :: Provider TempDirSpecification (Path Abs Dir) (Path Abs Dir)
+data TempDirOutput = TempDirOutput
+  { tempDirOutputPath :: !(Path Abs Dir)
+  }
+  deriving stock (Show, Eq, Generic)
+  deriving (FromJSON, ToJSON) via (Autodocodec TempDirOutput)
+
+instance Validity TempDirOutput
+
+instance HasCodec TempDirOutput where
+  codec =
+    object "TempDirOutput" $
+      TempDirOutput
+        <$> requiredFieldWith "path" (bimapCodec (left show . parseAbsDir) fromAbsDir codec) "dir path" .= tempDirOutputPath
+
+tempDirProvider :: Provider TempDirSpecification (Path Abs Dir) TempDirOutput
 tempDirProvider =
   Provider
     { providerName = "temporary-directory",
       providerQuery = \reference -> do
         exists <- doesDirExist reference
-        let output = reference
+        let output = TempDirOutput {tempDirOutputPath = reference}
         pure $
           if exists
             then ExistsRemotely output
@@ -47,21 +61,24 @@ tempDirProvider =
         case applyContext of
           DoesNotExistLocallyNorRemotely -> do
             tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
-            pure $ ApplySuccess tdir tdir
+            let output = TempDirOutput {tempDirOutputPath = tdir}
+            pure $ ApplySuccess tdir output
           ExistsLocallyButNotRemotely reference -> do
             ignoringAbsence $ removeDir reference
             tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
-            pure $ ApplySuccess tdir tdir
-          ExistsLocallyAndRemotely reference remoteDir -> do
-            let alreadyCorrect = case stripProperPrefix tempDirSpecificationBase remoteDir of
+            let output = TempDirOutput {tempDirOutputPath = tdir}
+            pure $ ApplySuccess tdir output
+          ExistsLocallyAndRemotely reference output@TempDirOutput {..} -> do
+            let alreadyCorrect = case stripProperPrefix tempDirSpecificationBase tempDirOutputPath of
                   Nothing -> False
                   Just subdir -> tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
             if alreadyCorrect
-              then pure $ ApplySuccess reference remoteDir
+              then pure $ ApplySuccess reference output
               else do
                 ignoringAbsence $ removeDir reference
                 tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
-                pure $ ApplySuccess tdir tdir,
+                let newOutput = TempDirOutput {tempDirOutputPath = tdir}
+                pure $ ApplySuccess tdir newOutput,
       providerCheck = \TempDirSpecification {..} reference -> do
         exists <- doesDirExist reference
         pure $
