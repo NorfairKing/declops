@@ -41,6 +41,8 @@ data Dispatch
   deriving (Show, Eq, Generic)
 
 data ApplySettings = ApplySettings
+  { applySettingDeploymentFile :: !(Path Abs File)
+  }
   deriving (Show, Eq, Generic)
 
 combineToInstructions :: Arguments -> Environment -> Maybe Configuration -> IO Instructions
@@ -50,11 +52,17 @@ combineToInstructions (Arguments cmd Flags {..}) Environment {..} mConf = do
       fromMaybe "declops-state.sqlite3" $
         flagStateFile <|> envStateFile <|> (mConf >>= configStateFile)
   dispatch <- case cmd of
-    CommandApply ApplyArgs -> pure $ DispatchApply ApplySettings
+    CommandApply ApplyArgs {..} -> do
+      applySettingDeploymentFile <-
+        resolveFile' $
+          fromMaybe "deployment.nix" $
+            applyArgDeploymentFile <|> envDeploymentFile <|> (mConf >>= configDeploymentFile)
+      pure $ DispatchApply ApplySettings {..}
   pure $ Instructions dispatch Settings {..}
 
 data Configuration = Configuration
-  { configStateFile :: !(Maybe FilePath)
+  { configDeploymentFile :: !(Maybe FilePath),
+    configStateFile :: !(Maybe FilePath)
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec Configuration)
@@ -63,7 +71,8 @@ instance HasCodec Configuration where
   codec =
     object "Configuration" $
       Configuration
-        <$> optionalField "state-file" "where to store deployment state" .= configStateFile
+        <$> optionalField "deployment-file" "deployment specification" .= configDeploymentFile
+        <*> optionalField "state-file" "where to store deployment state" .= configStateFile
 
 getConfiguration :: Flags -> Environment -> IO (Maybe Configuration)
 getConfiguration Flags {..} Environment {..} =
@@ -80,6 +89,7 @@ defaultConfigFile = do
 
 data Environment = Environment
   { envConfigFile :: !(Maybe FilePath),
+    envDeploymentFile :: !(Maybe FilePath),
     envStateFile :: !(Maybe FilePath)
   }
   deriving (Show, Eq, Generic)
@@ -92,6 +102,7 @@ environmentParser =
   Env.prefixed "DECLOPS_" $
     Environment
       <$> Env.var (fmap Just . Env.str) "CONFIG_FILE" (Env.def Nothing <> Env.help "Config file")
+      <*> Env.var (fmap Just . Env.str) "DEPLOYMENT_FILE" (Env.def Nothing <> Env.help "Deployment file")
       <*> Env.var (fmap Just . Env.str) "STATE_FILE" (Env.def Nothing <> Env.help "Config file")
 
 -- | The combination of a command with its specific flags and the flags for all commands
@@ -145,6 +156,8 @@ parseCommand =
 
 -- | One type per command, for the command-specific arguments
 data ApplyArgs = ApplyArgs
+  { applyArgDeploymentFile :: !(Maybe FilePath)
+  }
   deriving (Show, Eq, Generic)
 
 -- | One 'optparse-applicative' parser for each command's flags
@@ -152,7 +165,17 @@ parseCommandApply :: OptParse.ParserInfo ApplyArgs
 parseCommandApply = OptParse.info parser modifier
   where
     modifier = OptParse.fullDesc <> OptParse.progDesc "Apply the user"
-    parser = pure ApplyArgs
+    parser =
+      ApplyArgs
+        <$> optional
+          ( strOption
+              ( mconcat
+                  [ long "deployment-file",
+                    help "Path to a deployment file",
+                    metavar "FILEPATH"
+                  ]
+              )
+          )
 
 -- | The flags that are common across commands.
 data Flags = Flags

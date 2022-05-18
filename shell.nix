@@ -7,6 +7,7 @@ pkgs.haskell.lib.buildStackProject {
   buildInputs = with pkgs; [
     (import sources.niv { }).niv
     haskellPackages.autoexporter
+    nix
     zlib
   ] ++ pre-commit.tools;
   shellHook = pre-commit.run.shellHook;

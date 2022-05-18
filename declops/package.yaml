@@ -12,6 +12,7 @@ library:
     - autodocodec
     - autodocodec-yaml
     - bytestring
+    - containers
     - envparse
     - monad-logger
     - optparse-applicative
@@ -21,6 +22,7 @@ library:
     - persistent-sqlite
     - persistent-template
     - text
+    - typed-process
     - validity
     - validity-path
     - yaml

@@ -1,9 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Declops.Provider.TempDir where
 
+import Autodocodec
+import Control.Arrow (left)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.List
 import Data.Validity
 import Data.Validity.Path ()
@@ -16,9 +20,17 @@ data TempDirSpecification = TempDirSpecification
   { tempDirSpecificationBase :: !(Path Abs Dir),
     tempDirSpecificationTemplate :: !FilePath
   }
-  deriving (Show, Eq, Generic)
+  deriving stock (Show, Eq, Generic)
+  deriving (FromJSON, ToJSON) via (Autodocodec TempDirSpecification)
 
 instance Validity TempDirSpecification
+
+instance HasCodec TempDirSpecification where
+  codec =
+    object "TempDirSpecification" $
+      TempDirSpecification
+        <$> requiredFieldWith "base" (bimapCodec (left show . parseAbsDir) fromAbsDir codec) "base directory" .= tempDirSpecificationBase
+        <*> requiredField "template" "template directory name" .= tempDirSpecificationTemplate
 
 tempDirProvider :: Provider TempDirSpecification (Path Abs Dir) (Path Abs Dir)
 tempDirProvider =
