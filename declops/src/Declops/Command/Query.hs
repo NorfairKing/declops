@@ -18,49 +18,31 @@ import Declops.Env
 import Declops.OptParse
 import Declops.Provider
 import Declops.Provider.TempDir
-import Path
 import System.Exit
-import System.Process.Typed
 
 declopsQuery :: QuerySettings -> C ()
 declopsQuery QuerySettings {..} = do
   logDebugN "Parsing specification"
-  (exitCode, bs) <-
-    liftIO $
-      readProcessStdout $
-        proc
-          "nix"
-          [ "eval",
-            "--json",
-            "--file",
-            fromAbsFile querySettingDeploymentFile,
-            "resources.temporary-directory"
+  specifications <- nixEval querySettingDeploymentFile
+
+  queryContexts <- forM (M.toList (specifications :: Map Text TempDirSpecification)) $ \(name, tempDirSpec) -> do
+    logDebugN $
+      T.pack $
+        unwords
+          [ "Querying current state of",
+            T.unpack name
           ]
-  case exitCode of
-    ExitFailure _ -> liftIO $ die "nix failed."
-    ExitSuccess -> do
-      specification <- case JSON.eitherDecode bs of
-        Left err -> liftIO $ die err
-        Right specification -> pure (specification :: Map Text TempDirSpecification)
+    mLocalResource <- runDB $ getBy $ UniqueResource name (providerName tempDirProvider)
 
-      queryContexts <- forM (M.toList specification) $ \(name, tempDirSpec) -> do
-        logDebugN $
-          T.pack $
-            unwords
-              [ "Querying current state of",
-                T.unpack name
-              ]
-        mLocalResource <- runDB $ getBy $ UniqueResource name (providerName tempDirProvider)
-
-        queryContext <- case mLocalResource of
-          Nothing -> pure DoesNotExistLocallyNorRemotely
-          Just (Entity _ Resource {..}) -> do
-            reference <- case JSON.parseEither parseJSON resourceReference of
-              Left err -> liftIO $ die err
-              Right reference -> pure reference
-            remoteState <- liftIO $ providerQuery tempDirProvider reference
-            pure $ case remoteState of
-              DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
-              ExistsRemotely output -> ExistsLocallyAndRemotely reference output
-        pure (name, tempDirSpec, queryContext)
-      liftIO $ mapM_ print queryContexts
+    queryContext <- case mLocalResource of
+      Nothing -> pure DoesNotExistLocallyNorRemotely
+      Just (Entity _ Resource {..}) -> do
+        reference <- case JSON.parseEither parseJSON resourceReference of
+          Left err -> liftIO $ die err
+          Right reference -> pure reference
+        remoteState <- liftIO $ providerQuery tempDirProvider reference
+        pure $ case remoteState of
+          DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
+          ExistsRemotely output -> ExistsLocallyAndRemotely reference output
+    pure (name, tempDirSpec, queryContext)
+  liftIO $ mapM_ print queryContexts
