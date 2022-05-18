@@ -7,4 +7,5 @@ declopsMain :: IO ()
 declopsMain = do
   Instructions dispatch settings <- getInstructions
   case dispatch of
+    DispatchQuery querySettings -> declopsQuery querySettings settings
     DispatchApply applySettings -> declopsApply applySettings settings

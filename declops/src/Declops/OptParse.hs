@@ -41,7 +41,13 @@ data Settings = Settings
   deriving (Show, Eq, Generic)
 
 data Dispatch
-  = DispatchApply !ApplySettings
+  = DispatchQuery !QuerySettings
+  | DispatchApply !ApplySettings
+  deriving (Show, Eq, Generic)
+
+data QuerySettings = QuerySettings
+  { querySettingDeploymentFile :: !(Path Abs File)
+  }
   deriving (Show, Eq, Generic)
 
 data ApplySettings = ApplySettings
@@ -55,11 +61,18 @@ combineToInstructions (Arguments cmd Flags {..}) Environment {..} mConf = do
     resolveFile' $
       fromMaybe "declops-state.sqlite3" $
         flagStateFile <|> envStateFile <|> (mConf >>= configStateFile)
+  let defaultDeploymentFile = "deployment.nix"
   dispatch <- case cmd of
+    CommandQuery QueryArgs {..} -> do
+      querySettingDeploymentFile <-
+        resolveFile' $
+          fromMaybe defaultDeploymentFile $
+            queryArgDeploymentFile <|> envDeploymentFile <|> (mConf >>= configDeploymentFile)
+      pure $ DispatchQuery QuerySettings {..}
     CommandApply ApplyArgs {..} -> do
       applySettingDeploymentFile <-
         resolveFile' $
-          fromMaybe "deployment.nix" $
+          fromMaybe defaultDeploymentFile $
             applyArgDeploymentFile <|> envDeploymentFile <|> (mConf >>= configDeploymentFile)
       pure $ DispatchApply ApplySettings {..}
   let settingLogLevel = fromMaybe LevelWarn $ flagLogLevel <|> envLogLevel <|> (mConf >>= configLogLevel)
@@ -114,32 +127,26 @@ environmentParser =
       <*> Env.var (fmap Just . Env.str) "STATE_FILE" (Env.def Nothing <> Env.help "State file")
       <*> Env.var (fmap (Just . parseLogLevel) . Env.str) "LOG_LEVEL" (Env.def Nothing <> Env.help "Minimal severity of log messages")
 
--- | The combination of a command with its specific flags and the flags for all commands
 data Arguments
   = Arguments Command Flags
   deriving (Show, Eq, Generic)
 
--- | Get the command-line arguments
 getArguments :: IO Arguments
 getArguments = customExecParser prefs_ argParser
 
--- | The 'optparse-applicative' parsing preferences
 prefs_ :: OptParse.ParserPrefs
 prefs_ =
-  -- I like these preferences. Use what you like.
   OptParse.defaultPrefs
     { OptParse.prefShowHelpOnError = True,
       OptParse.prefShowHelpOnEmpty = True
     }
 
--- | The @optparse-applicative@ parser for 'Arguments'
 argParser :: OptParse.ParserInfo Arguments
 argParser =
   OptParse.info
     (OptParse.helper <*> parseArgs)
     (OptParse.fullDesc <> OptParse.footerDoc (Just $ OptParse.string footerStr))
   where
-    -- Show the variables from the environment that we parse and the config file format
     footerStr =
       unlines
         [ Env.helpDoc environmentParser,
@@ -151,42 +158,51 @@ argParser =
 parseArgs :: OptParse.Parser Arguments
 parseArgs = Arguments <$> parseCommand <*> parseFlags
 
--- | A sum type for the commands and their specific arguments
 data Command
-  = CommandApply ApplyArgs
+  = CommandQuery QueryArgs
+  | CommandApply ApplyArgs
   deriving (Show, Eq, Generic)
 
 parseCommand :: OptParse.Parser Command
 parseCommand =
   OptParse.hsubparser $
     mconcat
-      [ OptParse.command "apply" $ CommandApply <$> parseCommandApply
+      [ OptParse.command "query" $ CommandQuery <$> parseCommandQuery,
+        OptParse.command "apply" $ CommandApply <$> parseCommandApply
       ]
 
--- | One type per command, for the command-specific arguments
+data QueryArgs = QueryArgs
+  { queryArgDeploymentFile :: !(Maybe FilePath)
+  }
+  deriving (Show, Eq, Generic)
+
+parseCommandQuery :: OptParse.ParserInfo QueryArgs
+parseCommandQuery = OptParse.info parser modifier
+  where
+    modifier = OptParse.fullDesc <> OptParse.progDesc "Query a deployment"
+    parser = QueryArgs <$> optional parseDeploymentFileOption
+
 data ApplyArgs = ApplyArgs
   { applyArgDeploymentFile :: !(Maybe FilePath)
   }
   deriving (Show, Eq, Generic)
 
--- | One 'optparse-applicative' parser for each command's flags
 parseCommandApply :: OptParse.ParserInfo ApplyArgs
 parseCommandApply = OptParse.info parser modifier
   where
-    modifier = OptParse.fullDesc <> OptParse.progDesc "Apply the user"
-    parser =
-      ApplyArgs
-        <$> optional
-          ( strOption
-              ( mconcat
-                  [ long "deployment-file",
-                    help "Path to a deployment file",
-                    metavar "FILEPATH"
-                  ]
-              )
-          )
+    modifier = OptParse.fullDesc <> OptParse.progDesc "Apply a deployment"
+    parser = ApplyArgs <$> optional parseDeploymentFileOption
 
--- | The flags that are common across commands.
+parseDeploymentFileOption :: OptParse.Parser FilePath
+parseDeploymentFileOption =
+  strOption
+    ( mconcat
+        [ long "deployment-file",
+          help "Path to a deployment file",
+          metavar "FILEPATH"
+        ]
+    )
+
 data Flags = Flags
   { flagConfigFile :: !(Maybe FilePath),
     flagStateFile :: !(Maybe FilePath),
@@ -194,7 +210,6 @@ data Flags = Flags
   }
   deriving (Show, Eq, Generic)
 
--- | The 'optparse-applicative' parser for the 'Flags'.
 parseFlags :: OptParse.Parser Flags
 parseFlags =
   Flags

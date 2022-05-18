@@ -48,7 +48,8 @@ tempDirProvider =
           DoesNotExistLocallyNorRemotely -> do
             tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
             pure $ ApplySuccess tdir tdir
-          ExistsLocallyButNotRemotely _ -> do
+          ExistsLocallyButNotRemotely reference -> do
+            ignoringAbsence $ removeDir reference
             tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
             pure $ ApplySuccess tdir tdir
           ExistsLocallyAndRemotely reference remoteDir -> do
@@ -58,6 +59,7 @@ tempDirProvider =
             if alreadyCorrect
               then pure $ ApplySuccess reference remoteDir
               else do
+                ignoringAbsence $ removeDir reference
                 tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
                 pure $ ApplySuccess tdir tdir,
       providerCheck = \specification output -> do
