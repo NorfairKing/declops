@@ -25,6 +25,7 @@ library:
     - typed-process
     - validity
     - validity-path
+    - validity-text
     - yaml
 
 executables:
@@ -52,6 +53,7 @@ tests:
     - declops
     - genvalidity-path
     - genvalidity-sydtest
+    - genvalidity-text
     - path
     - path-io
     - sydtest

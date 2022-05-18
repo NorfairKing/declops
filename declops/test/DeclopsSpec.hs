@@ -4,9 +4,11 @@
 module DeclopsSpec (spec) where
 
 import Data.GenValidity.Path ()
+import Data.GenValidity.Text ()
 import qualified Data.Text as T
 import Declops.Provider
 import Declops.Provider.TempDir
+import Declops.Provider.TempFile
 import Path
 import Test.QuickCheck
 import Test.Syd
@@ -15,11 +17,16 @@ import Test.Syd.Validity
 
 spec :: Spec
 spec = do
-  tempDirSpec "declops-temp-dir-provider-test" $
+  tempDirSpec "declops-temporary-dir-provider-test" $
     localProviderSpec
       tempDirProvider
       (\tdir -> (</>) tdir <$> genValid)
       (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])
+  tempDirSpec "declops-temporary-file-provider-test" $
+    localProviderSpec
+      tempFileProvider
+      (\tdir -> (</>) tdir <$> genValid)
+      (\tdir -> TempFileSpecification tdir <$> elements ["foo", "bar", "quux"] <*> genValid)
 
 localProviderSpec ::
   forall input reference output i.
