@@ -29,39 +29,47 @@ declopsApply ApplySettings {..} Settings {..} = do
     filterLogger (\_ ll -> ll >= settingLogLevel) $
       withSqlitePool (T.pack (fromAbsFile settingStateFile)) 1 $ \pool -> do
         runSqlPool (runMigration localMigration) pool
+        logDebugN "Parsing specification"
         (exitCode, bs) <-
-          readProcessStdout $
-            proc
-              "nix"
-              [ "eval",
-                "--json",
-                "--file",
-                fromAbsFile applySettingDeploymentFile,
-                "resources.temporary-directory"
-              ]
-        liftIO $ case exitCode of
-          ExitFailure _ -> die "nix failed."
+          liftIO $
+            readProcessStdout $
+              proc
+                "nix"
+                [ "eval",
+                  "--json",
+                  "--file",
+                  fromAbsFile applySettingDeploymentFile,
+                  "resources.temporary-directory"
+                ]
+        case exitCode of
+          ExitFailure _ ->
+            liftIO $ die "nix failed." :: LoggingT IO ()
           ExitSuccess -> do
             specification <- case JSON.eitherDecode bs of
-              Left err -> die err
+              Left err -> liftIO $ die err
               Right specification -> pure (specification :: Map Text TempDirSpecification)
             forM_ (M.toList specification) $ \(name, tempDirSpec) -> do
+              logDebugN $ T.pack $ unwords ["Querying current state of", T.unpack name]
               mLocalResource <- runSqlPool (getBy $ UniqueResource name (providerName tempDirProvider)) pool
               applyContext <- case mLocalResource of
                 Nothing -> pure DoesNotExistLocallyNorRemotely
                 Just (Entity _ Resource {..}) -> do
                   reference <- case JSON.parseEither parseJSON resourceReference of
-                    Left err -> die err
+                    Left err -> liftIO $ die err
                     Right reference -> pure reference
-                  remoteState <- providerQuery tempDirProvider reference
+                  remoteState <- liftIO $ providerQuery tempDirProvider reference
                   pure $ case remoteState of
                     DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
                     ExistsRemotely output -> ExistsLocallyAndRemotely reference output
 
-              applyResult <- providerApply tempDirProvider tempDirSpec applyContext
+              logDebugN $ T.pack $ unwords ["Applying", T.unpack name]
+              applyResult <- liftIO $ providerApply tempDirProvider tempDirSpec applyContext
               case applyResult of
-                ApplyFailure err -> die err
+                ApplyFailure err -> do
+                  logDebugN $ T.pack $ unwords ["Failed to apply:", T.unpack name]
+                  liftIO $ die err
                 ApplySuccess reference output -> do
+                  logDebugN $ T.pack $ unwords ["Applied successfully:", T.unpack name]
                   _ <-
                     runSqlPool
                       ( upsertBy
