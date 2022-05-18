@@ -29,7 +29,7 @@ data Provider specification reference output = Provider
   { providerName :: !Text,
     providerQuery :: !(reference -> IO (RemoteState output)),
     providerApply :: !(specification -> ApplyContext reference output -> IO (ApplyResult reference output)),
-    providerCheck :: !(specification -> output -> IO CheckResult),
+    providerCheck :: !(specification -> reference -> IO CheckResult),
     providerDestroy :: !(reference -> RemoteState output -> IO DestroyResult)
   }
   deriving (Generic)

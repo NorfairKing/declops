@@ -62,11 +62,11 @@ tempDirProvider =
                 ignoringAbsence $ removeDir reference
                 tdir <- createTempDir tempDirSpecificationBase tempDirSpecificationTemplate
                 pure $ ApplySuccess tdir tdir,
-      providerCheck = \TempDirSpecification {..} output -> do
-        exists <- doesDirExist output
+      providerCheck = \TempDirSpecification {..} reference -> do
+        exists <- doesDirExist reference
         pure $
           if exists
-            then case stripProperPrefix tempDirSpecificationBase output of
+            then case stripProperPrefix tempDirSpecificationBase reference of
               Nothing -> CheckFailure "Directory had the wrong base."
               Just subdir ->
                 if tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
@@ -76,7 +76,7 @@ tempDirProvider =
                       unlines
                         [ "Directory did not have the right template:",
                           unwords ["expected:  ", tempDirSpecificationTemplate],
-                          unwords ["actual dir:", fromAbsDir output]
+                          unwords ["actual dir:", fromAbsDir reference]
                         ]
             else CheckFailure "Directory does not exist.",
       providerDestroy = \reference _ -> do

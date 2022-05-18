@@ -100,13 +100,13 @@ tempFileProvider =
                 hClose handle
                 let newOutput = TempFileOutput {tempFileOutputPath = tfile, tempFileOutputContents = tempFileSpecificationContents}
                 pure $ ApplySuccess tfile newOutput,
-      providerCheck = \TempFileSpecification {..} TempFileOutput {..} -> do
-        case stripProperPrefix tempFileSpecificationBase tempFileOutputPath of
+      providerCheck = \TempFileSpecification {..} reference -> do
+        case stripProperPrefix tempFileSpecificationBase reference of
           Nothing -> pure $ CheckFailure "File had the wrong base."
           Just subfile ->
             if tempFileSpecificationTemplate `isInfixOf` fromRelFile subfile
               then do
-                mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile tempFileOutputPath
+                mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile reference
                 pure $ case mContents of
                   Nothing -> CheckFailure "File does not exist."
                   Just contents ->
@@ -125,7 +125,7 @@ tempFileProvider =
                     unlines
                       [ "File did not have the right template:",
                         unwords ["expected:   ", tempFileSpecificationTemplate],
-                        unwords ["actual file:", fromAbsFile tempFileOutputPath]
+                        unwords ["actual file:", fromAbsFile reference]
                       ],
       providerDestroy = \reference _ -> do
         ignoringAbsence $ removeFile reference

@@ -130,8 +130,8 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
           applyResult <- providerApply input DoesNotExistLocallyNorRemotely
           case applyResult of
             ApplyFailure err -> expectationFailure err
-            ApplySuccess _ output -> do
-              checkResult <- providerCheck input output
+            ApplySuccess reference _ -> do
+              checkResult <- providerCheck input reference
               case checkResult of
                 CheckFailure err -> expectationFailure err
                 CheckSuccess -> pure ()
@@ -151,7 +151,7 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
                         ApplySuccess reference2 output2 ->
                           let ctxAfterSecond = unlines ["After second apply;", "reference:", ppShow reference2, "output:", ppShow output2]
                            in context ctxAfterSecond $ do
-                                checkResult <- providerCheck input2 output2
+                                checkResult <- providerCheck input2 reference2
                                 case checkResult of
                                   CheckFailure err -> expectationFailure err
                                   CheckSuccess -> pure ()
@@ -162,8 +162,8 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
             applyResult <- providerApply input (ExistsLocallyButNotRemotely reference1)
             case applyResult of
               ApplyFailure err -> expectationFailure err
-              ApplySuccess _ output -> do
-                checkResult <- providerCheck input output
+              ApplySuccess reference _ -> do
+                checkResult <- providerCheck input reference
                 case checkResult of
                   CheckFailure err -> expectationFailure err
                   CheckSuccess -> pure ()
@@ -175,10 +175,10 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
           applyResult <- providerApply input DoesNotExistLocallyNorRemotely
           case applyResult of
             ApplyFailure err -> expectationFailure err
-            ApplySuccess _ output -> do
+            ApplySuccess reference _ -> do
               -- Tests start here
-              checkResult1 <- providerCheck input output
-              checkResult2 <- providerCheck input output
+              checkResult1 <- providerCheck input reference
+              checkResult2 <- providerCheck input reference
               checkResult1 `shouldBe` checkResult2
 
     describe "destroy" $ do
@@ -249,10 +249,12 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
           ApplySuccess reference output -> do
             -- Query
             remoteState <- providerQuery reference
-            remoteState `shouldBe` ExistsRemotely output
+            case remoteState of
+              DoesNotExistRemotely -> expectationFailure "should have eisted remotely"
+              ExistsRemotely output' -> output' `shouldBe` output
 
             -- Check
-            checkResult <- providerCheck input output
+            checkResult <- providerCheck input reference
             case checkResult of
               CheckFailure err -> expectationFailure err
               CheckSuccess -> pure ()
@@ -278,7 +280,7 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
                       ExistsRemotely output -> output `shouldBe` output1
 
                     -- Check
-                    checkResult1 <- providerCheck input1 output1
+                    checkResult1 <- providerCheck input1 reference1
                     case checkResult1 of
                       CheckFailure err -> expectationFailure err
                       CheckSuccess -> pure ()
@@ -297,7 +299,7 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
                                 ExistsRemotely output -> output `shouldBe` output2
 
                               -- Check
-                              checkResult2 <- providerCheck input2 output2
+                              checkResult2 <- providerCheck input2 reference2
                               case checkResult2 of
                                 CheckFailure err -> expectationFailure err
                                 CheckSuccess -> pure ()
