@@ -48,9 +48,15 @@ declopsApply ApplySettings {..} Settings {..} = do
             specification <- case JSON.eitherDecode bs of
               Left err -> liftIO $ die err
               Right specification -> pure (specification :: Map Text TempDirSpecification)
-            forM_ (M.toList specification) $ \(name, tempDirSpec) -> do
-              logDebugN $ T.pack $ unwords ["Querying current state of", T.unpack name]
+            applyContexts <- forM (M.toList specification) $ \(name, tempDirSpec) -> do
+              logDebugN $
+                T.pack $
+                  unwords
+                    [ "Querying current state of",
+                      T.unpack name
+                    ]
               mLocalResource <- runSqlPool (getBy $ UniqueResource name (providerName tempDirProvider)) pool
+
               applyContext <- case mLocalResource of
                 Nothing -> pure DoesNotExistLocallyNorRemotely
                 Just (Entity _ Resource {..}) -> do
@@ -62,14 +68,32 @@ declopsApply ApplySettings {..} Settings {..} = do
                     DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
                     ExistsRemotely output -> ExistsLocallyAndRemotely reference output
 
-              logDebugN $ T.pack $ unwords ["Applying", T.unpack name]
+              pure (name, tempDirSpec, applyContext)
+
+            forM_ applyContexts $ \(name, tempDirSpec, applyContext) -> do
+              logInfoN $
+                T.pack $
+                  unwords
+                    [ "Applying",
+                      T.unpack name
+                    ]
               applyResult <- liftIO $ providerApply tempDirProvider tempDirSpec applyContext
               case applyResult of
                 ApplyFailure err -> do
-                  logDebugN $ T.pack $ unwords ["Failed to apply:", T.unpack name]
+                  logErrorN $
+                    T.pack $
+                      unwords
+                        [ "Failed to apply:",
+                          T.unpack name
+                        ]
                   liftIO $ die err
                 ApplySuccess reference output -> do
-                  logDebugN $ T.pack $ unwords ["Applied successfully:", T.unpack name]
+                  logDebugN $
+                    T.pack $
+                      unlines
+                        [ unwords ["Applied successfully:", T.unpack name],
+                          show output
+                        ]
                   _ <-
                     runSqlPool
                       ( upsertBy
