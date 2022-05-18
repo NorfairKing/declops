@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
@@ -9,7 +10,9 @@ module Declops.OptParse where
 import Autodocodec
 import Autodocodec.Yaml
 import Control.Applicative
+import Control.Monad.Logger
 import Data.Maybe
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Data.Yaml (FromJSON, ToJSON)
@@ -32,7 +35,8 @@ getInstructions = do
   combineToInstructions args env config
 
 data Settings = Settings
-  { settingStateFile :: !(Path Abs File)
+  { settingStateFile :: !(Path Abs File),
+    settingLogLevel :: !LogLevel
   }
   deriving (Show, Eq, Generic)
 
@@ -58,11 +62,13 @@ combineToInstructions (Arguments cmd Flags {..}) Environment {..} mConf = do
           fromMaybe "deployment.nix" $
             applyArgDeploymentFile <|> envDeploymentFile <|> (mConf >>= configDeploymentFile)
       pure $ DispatchApply ApplySettings {..}
+  let settingLogLevel = fromMaybe LevelWarn $ flagLogLevel <|> envLogLevel <|> (mConf >>= configLogLevel)
   pure $ Instructions dispatch Settings {..}
 
 data Configuration = Configuration
   { configDeploymentFile :: !(Maybe FilePath),
-    configStateFile :: !(Maybe FilePath)
+    configStateFile :: !(Maybe FilePath),
+    configLogLevel :: !(Maybe LogLevel)
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec Configuration)
@@ -73,6 +79,7 @@ instance HasCodec Configuration where
       Configuration
         <$> optionalField "deployment-file" "deployment specification" .= configDeploymentFile
         <*> optionalField "state-file" "where to store deployment state" .= configStateFile
+        <*> optionalFieldWith "log-level" (dimapCodec parseLogLevel renderLogLevel codec) "minimal severity of log messages" .= configLogLevel
 
 getConfiguration :: Flags -> Environment -> IO (Maybe Configuration)
 getConfiguration Flags {..} Environment {..} =
@@ -90,7 +97,8 @@ defaultConfigFile = do
 data Environment = Environment
   { envConfigFile :: !(Maybe FilePath),
     envDeploymentFile :: !(Maybe FilePath),
-    envStateFile :: !(Maybe FilePath)
+    envStateFile :: !(Maybe FilePath),
+    envLogLevel :: !(Maybe LogLevel)
   }
   deriving (Show, Eq, Generic)
 
@@ -103,7 +111,8 @@ environmentParser =
     Environment
       <$> Env.var (fmap Just . Env.str) "CONFIG_FILE" (Env.def Nothing <> Env.help "Config file")
       <*> Env.var (fmap Just . Env.str) "DEPLOYMENT_FILE" (Env.def Nothing <> Env.help "Deployment file")
-      <*> Env.var (fmap Just . Env.str) "STATE_FILE" (Env.def Nothing <> Env.help "Config file")
+      <*> Env.var (fmap Just . Env.str) "STATE_FILE" (Env.def Nothing <> Env.help "State file")
+      <*> Env.var (fmap (Just . parseLogLevel) . Env.str) "LOG_LEVEL" (Env.def Nothing <> Env.help "Minimal severity of log messages")
 
 -- | The combination of a command with its specific flags and the flags for all commands
 data Arguments
@@ -180,7 +189,8 @@ parseCommandApply = OptParse.info parser modifier
 -- | The flags that are common across commands.
 data Flags = Flags
   { flagConfigFile :: !(Maybe FilePath),
-    flagStateFile :: !(Maybe FilePath)
+    flagStateFile :: !(Maybe FilePath),
+    flagLogLevel :: !(Maybe LogLevel)
   }
   deriving (Show, Eq, Generic)
 
@@ -206,3 +216,29 @@ parseFlags =
               ]
           )
       )
+    <*> optional
+      ( option
+          (parseLogLevel <$> str)
+          ( mconcat
+              [ long "log-level",
+                help "Minimal severity of log messages",
+                metavar "FILEPATH"
+              ]
+          )
+      )
+
+parseLogLevel :: Text -> LogLevel
+parseLogLevel = \case
+  "Debug" -> LevelDebug
+  "Info" -> LevelInfo
+  "Warn" -> LevelWarn
+  "Error" -> LevelError
+  t -> LevelOther t
+
+renderLogLevel :: LogLevel -> Text
+renderLogLevel = \case
+  LevelDebug -> "Debug"
+  LevelInfo -> "Info"
+  LevelWarn -> "Warn"
+  LevelError -> "Error"
+  LevelOther t -> t
