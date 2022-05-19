@@ -10,8 +10,5 @@
         template = "bar";
       };
     };
-    other-thing-that-requires-other-resources = {
-      foo = { resources }: { };
-    };
   };
 }

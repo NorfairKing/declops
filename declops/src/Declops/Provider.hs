@@ -11,6 +11,8 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 import System.Exit
 
+type JSONProvider = Provider JSON.Value JSON.Value JSON.Value
+
 toJSONProvider ::
   ( FromJSON specification,
     ToJSON specification,
@@ -20,7 +22,7 @@ toJSONProvider ::
     ToJSON output
   ) =>
   Provider specification reference output ->
-  Provider JSON.Value JSON.Value JSON.Value
+  JSONProvider
 toJSONProvider provider =
   let parseJSONOrErr :: FromJSON a => JSON.Value -> IO a
       parseJSONOrErr value = case JSON.parseEither parseJSON value of

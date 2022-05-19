@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Declops.Env where
@@ -8,14 +7,20 @@ module Declops.Env where
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
+import Data.Aeson.Encode.Pretty as JSON
+import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Database.Persist.Sql
 import Database.Persist.Sqlite
 import Declops.DB
 import Declops.OptParse
 import Declops.Provider
+import Declops.Provider.TempDir
+import Declops.Provider.TempFile
 import Path
 import System.Exit
 import System.Process.Typed
@@ -68,23 +73,37 @@ nixEvalRaw file = do
 
 -- TODO list of errors instead of only a single one
 mapsToSpecificationPairs :: Map Text (Map Text JSON.Value) -> Either String [SomeSpecification]
-mapsToSpecificationPairs = undefined
+mapsToSpecificationPairs m =
+  fmap concat $
+    forM (M.toList m) $ \(resourceTypeName, resources) ->
+      forM (M.toList resources) $ \(resourceName, resource) -> do
+        case M.lookup resourceTypeName allProviders of
+          Nothing -> Left $ "Unknown provider: " <> T.unpack resourceTypeName
+          Just provider ->
+            pure $ SomeSpecification resourceTypeName resourceName resource provider
 
-data SomeSpecification where
-  SomeSpecification ::
-    (FromJSON reference, ToJSON reference, show output) =>
-    Text -> -- Resource type name
-    Text -> -- Resource name
-    specification ->
-    (Provider specification reference output) ->
-    SomeSpecification
+allProviders :: Map Text JSONProvider
+allProviders =
+  let p ::
+        ( FromJSON specification,
+          ToJSON specification,
+          FromJSON reference,
+          ToJSON reference,
+          FromJSON output,
+          ToJSON output
+        ) =>
+        Provider specification reference output ->
+        (Text, JSONProvider)
 
-data SomeSpecificationWithApplyContext where
-  SomeSpecificationWithApplyContext ::
-    (FromJSON reference, ToJSON reference, show output) =>
-    Text -> -- Resource type name
-    Text -> -- Resource name
-    specification ->
-    (Provider specification reference output) ->
-    (ApplyContext reference output) ->
-    SomeSpecificationWithApplyContext
+      p provider = (providerName provider, toJSONProvider provider)
+   in M.fromList [p tempDirProvider, p tempFileProvider]
+
+data SomeSpecification
+  = SomeSpecification
+      !Text -- Resource type name
+      !Text -- Resource name
+      !JSON.Value
+      !JSONProvider
+
+showJSON :: JSON.Value -> String
+showJSON = T.unpack . TE.decodeUtf8 . LB.toStrict . JSON.encodePretty
