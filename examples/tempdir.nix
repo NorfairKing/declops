@@ -11,7 +11,7 @@
       };
     };
     other-thing-that-requires-other-resources = {
-      foo = { ... }: { };
+      foo = { resources }: { };
     };
   };
 }
