@@ -197,7 +197,8 @@ parseDeploymentFileOption :: OptParse.Parser FilePath
 parseDeploymentFileOption =
   strOption
     ( mconcat
-        [ long "deployment-file",
+        [ short 'd',
+          long "deployment-file",
           help "Path to a deployment file",
           metavar "FILEPATH"
         ]

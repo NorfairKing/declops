@@ -7,6 +7,8 @@ Declarative ops
 Still playing around.
 Come back no sooner than when CI passes.
 
+To see what's already possible, you can dig into the `integration-tests` directory.
+
 ## Goals
 
 * Declarative infrastructure, no commands; only results
@@ -17,3 +19,4 @@ Come back no sooner than when CI passes.
 Would be nice too:
 
 * Monadic infrastructure: Which infrastructure to set up next can depend on previously set up infrastructure
+

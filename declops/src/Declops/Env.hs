@@ -86,7 +86,6 @@ allProviders :: Map Text JSONProvider
 allProviders =
   let p ::
         ( FromJSON specification,
-          ToJSON specification,
           FromJSON reference,
           ToJSON reference,
           FromJSON output,

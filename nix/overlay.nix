@@ -57,6 +57,7 @@ with final.haskell.lib;
       name = "declops-release";
       paths = attrValues final.declopsReleasePackages;
     };
+  declops = final.declopsRelease;
 
 
   haskellPackages =
