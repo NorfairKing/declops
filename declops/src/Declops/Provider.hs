@@ -1,9 +1,50 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Declops.Provider where
 
+import Data.Aeson as JSON
+import Data.Aeson.Types as JSON
+import Data.Functor.Identity
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import System.Exit
+
+toJSONProvider ::
+  ( FromJSON specification,
+    ToJSON specification,
+    FromJSON reference,
+    ToJSON reference,
+    FromJSON output,
+    ToJSON output
+  ) =>
+  Provider specification reference output ->
+  Provider JSON.Value JSON.Value JSON.Value
+toJSONProvider provider =
+  let parseJSONOrErr :: FromJSON a => JSON.Value -> IO a
+      parseJSONOrErr value = case JSON.parseEither parseJSON value of
+        Left err -> die err
+        Right result -> pure result
+   in Provider
+        { providerName = providerName provider,
+          providerQuery = \referenceJSON -> do
+            reference <- parseJSONOrErr referenceJSON
+            fmap toJSON <$> providerQuery provider reference,
+          providerApply = \specificationJSON applyContextJSON -> do
+            specification <- parseJSONOrErr specificationJSON
+            applyContext <- bimapApplyContext parseJSONOrErr parseJSONOrErr applyContextJSON
+            dimapApplyResult toJSON toJSON
+              <$> providerApply provider specification applyContext,
+          providerCheck = \specificationJSON referenceJSON -> do
+            reference <- parseJSONOrErr referenceJSON
+            specification <- parseJSONOrErr specificationJSON
+            providerCheck provider reference specification,
+          providerDestroy = \referenceJSON remoteStateJSON -> do
+            reference <- parseJSONOrErr referenceJSON
+            remoteState <- mapM parseJSONOrErr remoteStateJSON
+            providerDestroy provider reference remoteState
+        }
 
 -- | A provider for a resource.
 --
@@ -37,12 +78,12 @@ data Provider specification reference output = Provider
 data LocalState reference
   = DoesNotExistLocally
   | ExistsLocally !reference
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 data RemoteState output
   = DoesNotExistRemotely
   | ExistsRemotely !output
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 data ApplyContext reference output
   = DoesNotExistLocallyNorRemotely
@@ -50,10 +91,45 @@ data ApplyContext reference output
   | ExistsLocallyAndRemotely !reference !output
   deriving (Show, Eq, Generic)
 
+dimapApplyContext ::
+  (reference1 -> reference2) ->
+  (output1 -> output2) ->
+  ApplyContext reference1 output1 ->
+  ApplyContext reference2 output2
+dimapApplyContext referenceFunc outputFunc = runIdentity . bimapApplyContext (pure . referenceFunc) (pure . outputFunc)
+
+bimapApplyContext ::
+  Applicative f =>
+  (reference1 -> f reference2) ->
+  (output1 -> f output2) ->
+  ApplyContext reference1 output1 ->
+  f (ApplyContext reference2 output2)
+bimapApplyContext referenceFunc outputFunc = \case
+  DoesNotExistLocallyNorRemotely -> pure DoesNotExistLocallyNorRemotely
+  ExistsLocallyButNotRemotely reference -> ExistsLocallyButNotRemotely <$> referenceFunc reference
+  ExistsLocallyAndRemotely reference output -> ExistsLocallyAndRemotely <$> referenceFunc reference <*> outputFunc output
+
 data ApplyResult reference output
   = ApplySuccess !reference !output
   | ApplyFailure !String
   deriving (Show, Eq, Generic)
+
+dimapApplyResult ::
+  (reference1 -> reference2) ->
+  (output1 -> output2) ->
+  ApplyResult reference1 output1 ->
+  ApplyResult reference2 output2
+dimapApplyResult referenceFunc outputFunc = runIdentity . bimapApplyResult (pure . referenceFunc) (pure . outputFunc)
+
+bimapApplyResult ::
+  Applicative f =>
+  (reference1 -> f reference2) ->
+  (output1 -> f output2) ->
+  ApplyResult reference1 output1 ->
+  f (ApplyResult reference2 output2)
+bimapApplyResult referenceFunc outputFunc = \case
+  ApplySuccess reference output -> ApplySuccess <$> referenceFunc reference <*> outputFunc output
+  ApplyFailure err -> pure $ ApplyFailure err
 
 data CheckResult
   = CheckSuccess
