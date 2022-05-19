@@ -26,14 +26,14 @@ declopsApply ApplySettings {..} = do
 
   specifications <- nixEval applySettingDeploymentFile
 
-  applyContexts <- forM (M.toList (specifications :: Map Text TempDirSpecification)) $ \(name, tempDirSpec) -> do
+  applyContexts <- forM specifications $ \(SomeSpecification resourceTypeName resourceName specification provider) -> do
     logDebugN $
       T.pack $
         unwords
           [ "Querying current state of",
-            T.unpack name
+            concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
           ]
-    mLocalResource <- runDB $ getBy $ UniqueResource name (providerName tempDirProvider)
+    mLocalResource <- runDB $ getBy $ UniqueResource resourceName resourceTypeName
 
     applyContext <- case mLocalResource of
       Nothing -> pure DoesNotExistLocallyNorRemotely
@@ -41,52 +41,49 @@ declopsApply ApplySettings {..} = do
         reference <- case JSON.parseEither parseJSON resourceReference of
           Left err -> liftIO $ die err
           Right reference -> pure reference
-        remoteState <- liftIO $ providerQuery tempDirProvider reference
+        remoteState <- liftIO $ providerQuery provider reference
         pure $ case remoteState of
           DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
           ExistsRemotely output -> ExistsLocallyAndRemotely reference output
 
-    pure (name, tempDirSpec, applyContext)
+    pure $ SomeSpecificationWithApplyContext resourceTypeName resourceName specification provider applyContext
 
-  forM_ applyContexts $ \(name, tempDirSpec, applyContext) -> do
+  forM_ applyContexts $ \(SomeSpecificationWithApplyContext resourceTypeName resourceName specification provider applyContext) -> do
     logInfoN $
       T.pack $
         unwords
           [ "Applying",
-            T.unpack name
+            concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
           ]
-    applyResult <- liftIO $ providerApply tempDirProvider tempDirSpec applyContext
+    applyResult <- liftIO $ providerApply provider specification applyContext
     case applyResult of
       ApplyFailure err -> do
         logErrorN $
           T.pack $
             unwords
               [ "Failed to apply:",
-                T.unpack name
+                concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
               ]
         liftIO $ die err
       ApplySuccess reference output -> do
         logDebugN $
           T.pack $
             unlines
-              [ unwords ["Applied successfully:", T.unpack name],
+              [ unwords
+                  [ "Applied successfully:",
+                    concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
+                  ],
                 show output
               ]
         _ <-
           runDB $
             upsertBy
-              (UniqueResource name (providerName tempDirProvider))
+              (UniqueResource resourceName resourceTypeName)
               ( Resource
-                  { resourceName = name,
-                    resourceProvider = providerName tempDirProvider,
+                  { resourceName = resourceName,
+                    resourceProvider = resourceTypeName,
                     resourceReference = toJSON reference
                   }
               )
               [ResourceReference =. toJSON reference]
         pure ()
-
--- data Specification = Specification
---   { specificationResources :: !(Map Text (Map Text JSON.Value))
---   }
---   deriving stock (Show, Eq, Generic)
---   deriving (FromJSON, ToJSON) via (Autodocodec Specification)

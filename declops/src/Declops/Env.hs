@@ -1,3 +1,6 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Declops.Env where
@@ -5,11 +8,14 @@ module Declops.Env where
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
+import Data.Map (Map)
+import Data.Text (Text)
 import qualified Data.Text as T
 import Database.Persist.Sql
 import Database.Persist.Sqlite
 import Declops.DB
 import Declops.OptParse
+import Declops.Provider
 import Path
 import System.Exit
 import System.Process.Typed
@@ -34,8 +40,15 @@ runC Settings {..} func = do
         let envConnectionPool = pool
         runReaderT func Env {..}
 
-nixEval :: FromJSON a => Path Abs File -> C a
+nixEval :: Path Abs File -> C [SomeSpecification]
 nixEval file = do
+  maps <- nixEvalRaw file
+  case mapsToSpecificationPairs maps of
+    Left err -> liftIO $ die err
+    Right specs -> pure specs
+
+nixEvalRaw :: Path Abs File -> C (Map Text (Map Text JSON.Value))
+nixEvalRaw file = do
   (exitCode, bs) <-
     liftIO $
       readProcessStdout $
@@ -45,10 +58,33 @@ nixEval file = do
             "--json",
             "--file",
             fromAbsFile file,
-            "resources.temporary-directory"
+            "resources"
           ]
   case exitCode of
     ExitFailure _ -> liftIO $ die "nix failed."
     ExitSuccess -> case JSON.eitherDecode bs of
       Left err -> liftIO $ die err
       Right output -> pure output
+
+-- TODO list of errors instead of only a single one
+mapsToSpecificationPairs :: Map Text (Map Text JSON.Value) -> Either String [SomeSpecification]
+mapsToSpecificationPairs = undefined
+
+data SomeSpecification where
+  SomeSpecification ::
+    (FromJSON reference, ToJSON reference, show output) =>
+    Text -> -- Resource type name
+    Text -> -- Resource name
+    specification ->
+    (Provider specification reference output) ->
+    SomeSpecification
+
+data SomeSpecificationWithApplyContext where
+  SomeSpecificationWithApplyContext ::
+    (FromJSON reference, ToJSON reference, show output) =>
+    Text -> -- Resource type name
+    Text -> -- Resource name
+    specification ->
+    (Provider specification reference output) ->
+    (ApplyContext reference output) ->
+    SomeSpecificationWithApplyContext
