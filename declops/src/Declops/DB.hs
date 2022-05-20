@@ -17,6 +17,7 @@
 module Declops.DB
   ( module Declops.DB,
     module Declops.DB.ResourceName,
+    module Declops.DB.ProviderName,
   )
 where
 
@@ -24,10 +25,10 @@ import Control.Arrow (left)
 import Data.Aeson as JSON
 import qualified Data.ByteString.Lazy as LB
 import Data.Proxy
-import Data.Text (Text)
 import qualified Data.Text as T
 import Database.Persist.Sqlite
 import Database.Persist.TH
+import Declops.DB.ProviderName
 import Declops.DB.ResourceName
 import GHC.Generics (Generic)
 
@@ -37,8 +38,9 @@ share
 
 ResourceReference
   name ResourceName
-  provider Text
+  provider ProviderName
   -- TODO do we need this?
+  -- Yes, for diffing, I think
   -- specification JSON.Value
   reference JSON.Value
 

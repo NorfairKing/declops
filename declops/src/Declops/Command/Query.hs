@@ -22,7 +22,7 @@ declopsQuery = do
         T.pack $
           unwords
             [ "Querying current state of",
-              concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+              concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
             ]
       mLocalResource <- runDB $ getBy $ UniqueResourceReference resourceTypeName resourceName
 

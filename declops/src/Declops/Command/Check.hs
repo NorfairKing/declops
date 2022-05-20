@@ -26,15 +26,15 @@ declopsCheck = do
           pure $
             CheckFailure $
               unwords
-                [ "Resource does not exist locally: "
-                    <> concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+                [ "Resource does not exist locally: ",
+                  concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
         Just (Entity _ resourceReference) -> do
           logDebugN $
             T.pack $
               unwords
                 [ "Checking",
-                  concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+                  concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
           let reference = resourceReferenceReference resourceReference
           liftIO $ providerCheck provider specification reference

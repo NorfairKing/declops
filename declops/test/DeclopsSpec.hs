@@ -6,6 +6,7 @@ module DeclopsSpec (spec) where
 import Data.GenValidity.Path ()
 import Data.GenValidity.Text ()
 import qualified Data.Text as T
+import Declops.DB
 import Declops.Provider
 import Declops.Provider.TempDir
 import Declops.Provider.TempFile
@@ -43,7 +44,7 @@ localProviderSpec ::
   (i -> Gen input) ->
   SpecWith i
 localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 50) $
-  describe (T.unpack providerName) $ do
+  describe (T.unpack $ unProviderName providerName) $ do
     describe "query" $ do
       it "is idempotent if the resource does not exist remotely" $ \i ->
         forAll (genReference i) $ \reference -> do

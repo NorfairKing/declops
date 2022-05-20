@@ -7,7 +7,7 @@ module Declops.Provider where
 import Data.Aeson as JSON
 import Data.Aeson.Types as JSON
 import Data.Functor.Identity
-import Data.Text (Text)
+import Declops.DB.ProviderName
 import GHC.Generics (Generic)
 import System.Exit
 
@@ -67,7 +67,7 @@ toJSONProvider provider =
 -- Each of these functions MUST be idempotent so that they can be retried.
 -- Getting them all right is not an easy thing to do, which is why we provide a test suite.
 data Provider specification reference output = Provider
-  { providerName :: !Text,
+  { providerName :: !ProviderName,
     providerQuery :: !(reference -> IO (RemoteState output)),
     providerApply :: !(specification -> ApplyContext reference output -> IO (ApplyResult reference output)),
     providerCheck :: !(specification -> reference -> IO CheckResult),

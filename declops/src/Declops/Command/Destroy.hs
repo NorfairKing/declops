@@ -30,7 +30,7 @@ declopsDestroy = do
             T.pack $
               unwords
                 [ "Not destroying because it doesn't exist locally:",
-                  concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+                  concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
           pure DestroySuccess
         Just (Entity resourceId resourceReference) -> do
@@ -38,7 +38,7 @@ declopsDestroy = do
             T.pack $
               unwords
                 [ "Destroying",
-                  concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+                  concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
           destroyResult <- liftIO $ providerDestroy provider (resourceReferenceReference resourceReference)
           runDB $ delete resourceId

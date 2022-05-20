@@ -11,7 +11,6 @@ import Data.Aeson.Encode.Pretty as JSON
 import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Database.Persist.Sql
@@ -54,7 +53,7 @@ nixEval = do
     Left err -> liftIO $ die err
     Right specs -> pure specs
 
-nixEvalRaw :: C (Map Text (Map ResourceName JSON.Value))
+nixEvalRaw :: C (Map ProviderName (Map ResourceName JSON.Value))
 nixEvalRaw = do
   file <- asks envDeploymentFile
   (exitCode, bs) <-
@@ -75,17 +74,22 @@ nixEvalRaw = do
       Right output -> pure output
 
 -- TODO list of errors instead of only a single one
-mapsToSpecificationPairs :: Map Text (Map ResourceName JSON.Value) -> Either String [SomeSpecification]
+mapsToSpecificationPairs :: Map ProviderName (Map ResourceName JSON.Value) -> Either String [SomeSpecification]
 mapsToSpecificationPairs m =
   fmap concat $
-    forM (M.toList m) $ \(resourceTypeName, resources) ->
+    forM (M.toList m) $ \(providerName, resources) ->
       forM (M.toList resources) $ \(resourceName, resource) -> do
-        case M.lookup resourceTypeName allProviders of
-          Nothing -> Left $ "Unknown provider: " <> T.unpack resourceTypeName
+        case M.lookup providerName allProviders of
+          Nothing ->
+            Left $
+              unwords
+                [ "Unknown provider: ",
+                  T.unpack $ unProviderName providerName
+                ]
           Just provider ->
-            pure $ SomeSpecification resourceTypeName resourceName resource provider
+            pure $ SomeSpecification providerName resourceName resource provider
 
-allProviders :: Map Text JSONProvider
+allProviders :: Map ProviderName JSONProvider
 allProviders =
   let p ::
         ( FromJSON specification,
@@ -95,14 +99,14 @@ allProviders =
           ToJSON output
         ) =>
         Provider specification reference output ->
-        (Text, JSONProvider)
+        (ProviderName, JSONProvider)
 
       p provider = (providerName provider, toJSONProvider provider)
    in M.fromList [p tempDirProvider, p tempFileProvider]
 
 data SomeSpecification
   = SomeSpecification
-      !Text -- Resource type name
+      !ProviderName -- Provider name
       !ResourceName -- Resource name
       !JSON.Value
       !JSONProvider

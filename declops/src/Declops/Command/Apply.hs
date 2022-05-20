@@ -24,7 +24,7 @@ declopsApply = do
         T.pack $
           unwords
             [ "Querying current state of",
-              concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+              concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
             ]
       mLocalResource <- runDB $ getBy $ UniqueResourceReference resourceTypeName resourceName
 
@@ -45,7 +45,7 @@ declopsApply = do
         unlines
           [ unwords
               [ "Applying",
-                concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+                concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
               ],
             showJSON specification
           ]
@@ -57,7 +57,7 @@ declopsApply = do
             unlines
               [ unwords
                   [ "Failed to apply:",
-                    concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+                    concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                   ],
                 err
               ]
@@ -67,7 +67,7 @@ declopsApply = do
             unlines
               [ unwords
                   [ "Applied successfully:",
-                    concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
+                    concat [T.unpack $ unProviderName resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                   ],
                 showJSON reference,
                 showJSON output
