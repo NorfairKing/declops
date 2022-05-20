@@ -53,9 +53,11 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - QuickCheck
+    - aeson
     - declops
     - genvalidity-path
     - genvalidity-sydtest
+    - genvalidity-sydtest-aeson
     - genvalidity-text
     - path
     - path-io

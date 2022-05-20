@@ -81,10 +81,12 @@ test-suite declops-test
       sydtest-discover:sydtest-discover
   build-depends:
       QuickCheck
+    , aeson
     , base >=4.7 && <5
     , declops
     , genvalidity-path
     , genvalidity-sydtest
+    , genvalidity-sydtest-aeson
     , genvalidity-text
     , path
     , path-io
