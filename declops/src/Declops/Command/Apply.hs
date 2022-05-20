@@ -39,7 +39,7 @@ declopsApply = do
 
       pure (SomeSpecification resourceTypeName currentResourceName specification provider, applyContext)
 
-  forConcurrently_ applyContexts $ \(SomeSpecification resourceTypeName currentResourceName specification provider, applyContext) -> do
+  results <- forConcurrently applyContexts $ \(SomeSpecification resourceTypeName currentResourceName specification provider, applyContext) -> do
     logInfoN $
       T.pack $
         unlines
@@ -51,14 +51,16 @@ declopsApply = do
           ]
     applyResult <- liftIO $ providerApply provider specification applyContext
     case applyResult of
-      ApplyFailure err -> do
+      ApplyFailure err ->
         logErrorN $
           T.pack $
-            unwords
-              [ "Failed to apply:",
-                concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+            unlines
+              [ unwords
+                  [ "Failed to apply:",
+                    concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                  ],
+                err
               ]
-        liftIO $ die err
       ApplySuccess reference output -> do
         logDebugN $
           T.pack $
@@ -82,3 +84,8 @@ declopsApply = do
               )
               [ResourceReference =. toJSON reference]
         pure ()
+    pure applyResult
+
+  if any applyFailed results
+    then liftIO exitFailure
+    else pure ()

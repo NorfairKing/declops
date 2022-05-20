@@ -131,6 +131,11 @@ bimapApplyResult referenceFunc outputFunc = \case
   ApplySuccess reference output -> ApplySuccess <$> referenceFunc reference <*> outputFunc output
   ApplyFailure err -> pure $ ApplyFailure err
 
+applyFailed :: ApplyResult reference output -> Bool
+applyFailed = \case
+  ApplySuccess _ _ -> False
+  ApplyFailure _ -> True
+
 data CheckResult
   = CheckSuccess
   | CheckFailure !String
