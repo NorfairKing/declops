@@ -17,7 +17,7 @@ declopsDestroy = do
   specifications <- nixEval
 
   tups <- forConcurrently specifications $
-    \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
+    \(SomeSpecification resourceTypeName currentResourceName _ provider) -> do
       logDebugN $
         T.pack $
           unwords
@@ -25,6 +25,15 @@ declopsDestroy = do
               concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
             ]
       mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
-      destroyResult <- undefined :: C DestroyResult
+      destroyResult <- case mLocalResource of
+        Nothing ->
+          -- There was nothing to destroy, so we don't do anything but still
+          -- consider it a success.
+          -- If we were to fail here, the destroy command could not be
+          -- idempotent.
+          pure DestroySuccess
+        Just (Entity _ resource) ->
+          liftIO $ providerDestroy provider (resourceReference resource)
+
       pure (currentResourceName, destroyResult)
   liftIO $ mapM_ print tups

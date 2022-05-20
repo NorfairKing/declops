@@ -96,7 +96,7 @@ tempDirProvider =
                           unwords ["actual dir:", fromAbsDir reference]
                         ]
             else CheckFailure "Directory does not exist.",
-      providerDestroy = \reference _ -> do
+      providerDestroy = \reference -> do
         ignoringAbsence $ removeDir reference
         pure DestroySuccess
     }

@@ -187,8 +187,8 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
           applyResult <- providerApply input DoesNotExistLocallyNorRemotely
           case applyResult of
             ApplyFailure err -> expectationFailure err
-            ApplySuccess reference output -> do
-              destroyResult <- providerDestroy reference (ExistsRemotely output)
+            ApplySuccess reference _ -> do
+              destroyResult <- providerDestroy reference
               destroyResult `shouldBe` DestroySuccess
 
       it "is idempotent when the resource was just created" $ \i ->
@@ -197,33 +197,21 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
           applyResult <- providerApply input DoesNotExistLocallyNorRemotely
           case applyResult of
             ApplyFailure err -> expectationFailure err
-            ApplySuccess reference output -> do
+            ApplySuccess reference _ -> do
               -- Tests start here
-              destroyResult1 <- providerDestroy reference (ExistsRemotely output)
-              destroyResult2 <- providerDestroy reference DoesNotExistRemotely
-              destroyResult1 `shouldBe` destroyResult2
-
-      it "is idempotent when the resource was just created, even if we thought the resource still existed" $ \i ->
-        forAll (genInput i) $ \input -> do
-          -- Setup
-          applyResult <- providerApply input DoesNotExistLocallyNorRemotely
-          case applyResult of
-            ApplyFailure err -> expectationFailure err
-            ApplySuccess reference output -> do
-              -- Tests start here
-              destroyResult1 <- providerDestroy reference (ExistsRemotely output)
-              destroyResult2 <- providerDestroy reference (ExistsRemotely output)
+              destroyResult1 <- providerDestroy reference
+              destroyResult2 <- providerDestroy reference
               destroyResult1 `shouldBe` destroyResult2
 
       it "can destroy a resource that exists locally but not remotely" $ \i ->
         forAll (genReference i) $ \reference -> do
-          destroyResult <- providerDestroy reference DoesNotExistRemotely
+          destroyResult <- providerDestroy reference
           destroyResult `shouldBe` DestroySuccess
 
       it "is idempotent when the resource existed locally but not remotely" $ \i ->
         forAll (genReference i) $ \reference -> do
-          destroyResult1 <- providerDestroy reference DoesNotExistRemotely
-          destroyResult2 <- providerDestroy reference DoesNotExistRemotely
+          destroyResult1 <- providerDestroy reference
+          destroyResult2 <- providerDestroy reference
           destroyResult1 `shouldBe` destroyResult2
 
       it "can no longer find the resource remotely after destroying it" $ \i ->
@@ -232,9 +220,9 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
           applyResult <- providerApply input DoesNotExistLocallyNorRemotely
           case applyResult of
             ApplyFailure err -> expectationFailure err
-            ApplySuccess reference output -> do
+            ApplySuccess reference _ -> do
               -- Tests start here
-              destroyResult <- providerDestroy reference (ExistsRemotely output)
+              destroyResult <- providerDestroy reference
               destroyResult `shouldBe` DestroySuccess
 
               remoteState <- providerQuery reference
@@ -260,7 +248,7 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
               CheckSuccess -> pure ()
 
             -- Destroy
-            destroyResult <- providerDestroy reference (ExistsRemotely output)
+            destroyResult <- providerDestroy reference
             destroyResult `shouldBe` DestroySuccess
 
     it "can go through an entire cycle from nothing back to nothing, with a change" $ \i ->
@@ -305,5 +293,5 @@ localProviderSpec Provider {..} genReference genInput = modifyMaxSuccess (`div` 
                                 CheckSuccess -> pure ()
 
                               -- Destroy
-                              destroyResult <- providerDestroy reference2 (ExistsRemotely output2)
+                              destroyResult <- providerDestroy reference2
                               destroyResult `shouldBe` DestroySuccess

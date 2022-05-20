@@ -127,7 +127,7 @@ tempFileProvider =
                         unwords ["expected:   ", tempFileSpecificationTemplate],
                         unwords ["actual file:", fromAbsFile reference]
                       ],
-      providerDestroy = \reference _ -> do
+      providerDestroy = \reference -> do
         ignoringAbsence $ removeFile reference
         pure DestroySuccess
     }

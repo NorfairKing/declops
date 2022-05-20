@@ -41,10 +41,9 @@ toJSONProvider provider =
             reference <- parseJSONOrErr referenceJSON
             specification <- parseJSONOrErr specificationJSON
             providerCheck provider specification reference,
-          providerDestroy = \referenceJSON remoteStateJSON -> do
+          providerDestroy = \referenceJSON -> do
             reference <- parseJSONOrErr referenceJSON
-            remoteState <- mapM parseJSONOrErr remoteStateJSON
-            providerDestroy provider reference remoteState
+            providerDestroy provider reference
         }
 
 -- | A provider for a resource.
@@ -72,7 +71,7 @@ data Provider specification reference output = Provider
     providerQuery :: !(reference -> IO (RemoteState output)),
     providerApply :: !(specification -> ApplyContext reference output -> IO (ApplyResult reference output)),
     providerCheck :: !(specification -> reference -> IO CheckResult),
-    providerDestroy :: !(reference -> RemoteState output -> IO DestroyResult)
+    providerDestroy :: !(reference -> IO DestroyResult)
   }
   deriving (Generic)
 
