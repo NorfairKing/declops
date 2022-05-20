@@ -19,6 +19,9 @@ nixosTest (
       machine.succeed("declops query -d ${deployment}")
       machine.succeed("declops apply -d ${deployment}")
       machine.succeed("declops query -d ${deployment}")
-    '';
+      machine.succeed("declops check -d ${deployment}")
+      machine.succeed("declops destroy -d ${deployment}")
+      machine.succeed("declops query -d ${deployment}")
+    ''; # TODO failing check before and after
   }
 )
