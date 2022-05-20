@@ -7,6 +7,16 @@ cabal-version: 1.12
 name:           declops
 version:        0.0.0.0
 build-type:     Simple
+extra-source-files:
+    test_resources/migration.sql
+    test_resources/providers/temporary-directory/schemas/input.txt
+    test_resources/providers/temporary-directory/schemas/output.txt
+    test_resources/providers/temporary-directory/schemas/reference.txt
+    test_resources/providers/temporary-file/schemas/input.txt
+    test_resources/providers/temporary-file/schemas/output.txt
+    test_resources/providers/temporary-file/schemas/reference.txt
+data-files:
+    nix-bits/get-graph.nix
 
 library
   exposed-modules:

@@ -1,9 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Declops.Env where
 
+import Autodocodec
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
@@ -11,6 +15,7 @@ import Data.Aeson.Encode.Pretty as JSON
 import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Database.Persist.Sql
@@ -20,7 +25,9 @@ import Declops.OptParse (Settings (..))
 import Declops.Provider
 import Declops.Provider.TempDir
 import Declops.Provider.TempFile
+import GHC.Generics (Generic)
 import Path
+import Paths_declops
 import System.Exit
 import System.Process.Typed
 
@@ -46,27 +53,68 @@ runC Settings {..} func = do
         let envConnectionPool = pool
         runReaderT func Env {..}
 
+nixEvalGraph :: C DependenciesSpecification
+nixEvalGraph = do
+  file <- asks envDeploymentFile
+  getGraphFile <- liftIO $ getDataFileName "nix-bits/get-graph.nix"
+  nixEvalJSON ["--file", getGraphFile, "--arg", "deployment", fromAbsFile file, "dependencies"]
+
+newtype DependenciesSpecification = DependenciesSpecification
+  { unDependenciesSpecification :: Map ProviderName (Map ResourceName [ResourceId])
+  }
+  deriving stock (Show, Eq, Generic)
+  deriving (FromJSON, ToJSON) via (Autodocodec DependenciesSpecification)
+
+instance HasCodec DependenciesSpecification where
+  codec = dimapCodec DependenciesSpecification unDependenciesSpecification codec
+
+data ResourceId = ResourceId
+  { resourceIdProvider :: !ProviderName,
+    resourceIdResource :: !ResourceName
+  }
+  deriving stock (Show, Eq, Generic)
+  deriving (FromJSON, ToJSON) via (Autodocodec ResourceId)
+
+instance HasCodec ResourceId where
+  codec = bimapCodec parseResourceId renderResourceId codec
+
+parseResourceId :: Text -> Either String ResourceId
+parseResourceId t = case T.splitOn "." t of
+  [providerText, resourceText] -> Right $ ResourceId (ProviderName providerText) (ResourceName resourceText)
+  _ -> Left "Unparseable resource id"
+
+renderResourceId :: ResourceId -> Text
+renderResourceId ResourceId {..} =
+  T.intercalate
+    "."
+    [ unProviderName resourceIdProvider,
+      unResourceName resourceIdResource
+    ]
+
 nixEval :: C [SomeSpecification]
 nixEval = do
-  maps <- nixEvalRaw
+  file <- asks envDeploymentFile
+  maps <- nixEvalFile file "resources"
   case mapsToSpecificationPairs maps of
     Left err -> liftIO $ die err
     Right specs -> pure specs
 
-nixEvalRaw :: C (Map ProviderName (Map ResourceName JSON.Value))
-nixEvalRaw = do
-  file <- asks envDeploymentFile
+nixEvalFile :: FromJSON a => Path Abs File -> String -> C a
+nixEvalFile file attribute =
+  nixEvalJSON
+    [ "--file",
+      fromAbsFile file,
+      attribute
+    ]
+
+nixEvalJSON :: FromJSON a => [String] -> C a
+nixEvalJSON args = do
   (exitCode, bs) <-
     liftIO $
       readProcessStdout $
         proc
           "nix"
-          [ "eval",
-            "--json",
-            "--file",
-            fromAbsFile file,
-            "resources"
-          ]
+          ("eval" : "--json" : args)
   case exitCode of
     ExitFailure _ -> liftIO $ die "nix failed."
     ExitSuccess -> case JSON.eitherDecode bs of

@@ -2,7 +2,10 @@ name: declops
 version: 0.0.0.0
 
 extra-source-files:
-- test-resources/**/*
+- test_resources/**/*
+
+data-files:
+- nix-bits/**/*
 
 dependencies:
 - base >= 4.7 && < 5

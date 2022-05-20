@@ -6,20 +6,29 @@
         template = "bar";
       };
       my-other-temp-dir = {
-        base = "/tmp";
-        template = "bar";
+        dependencies = [ "temporary-directory.my-temp-dir" ];
+        spec = { resources }: {
+          base = resources.temporary-directory.my-temp-dir.path;
+          template = "bar";
+        };
       };
     };
     temporary-file = {
       my-temp-file = {
-        base = "/tmp";
-        template = "foo";
-        contents = "bar";
+        dependencies = [ "temporary-directory.my-temp-dir" ];
+        spec = { resources }: {
+          base = "/tmp";
+          template = resources.temporary-directory.my-temp-dir.path;
+          contents = "bar";
+        };
       };
       my-other-temp-file = {
-        base = "/tmp";
-        template = "quux";
-        contents = "mu";
+        dependencies = [ "temporary-directory.my-other-temp-dir" ];
+        spec = { resources }: {
+          base = "/tmp";
+          template = resources.temporary-directory.my-other-temp-dir.path;
+          contents = "mu";
+        };
       };
     };
   };
