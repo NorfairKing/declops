@@ -26,7 +26,7 @@ declopsQuery QuerySettings {..} = do
             [ "Querying current state of",
               concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
             ]
-      mLocalResource <- runDB $ getBy $ UniqueResource resourceName resourceTypeName
+      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName resourceName
 
       remoteState <- case mLocalResource of
         Nothing -> pure DoesNotExistLocallyNorRemotely

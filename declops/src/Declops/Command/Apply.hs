@@ -29,7 +29,7 @@ declopsApply ApplySettings {..} = do
             [ "Querying current state of",
               concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
             ]
-      mLocalResource <- runDB $ getBy $ UniqueResource resourceName resourceTypeName
+      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName resourceName
 
       applyContext <- case mLocalResource of
         Nothing -> pure DoesNotExistLocallyNorRemotely
@@ -76,7 +76,7 @@ declopsApply ApplySettings {..} = do
         _ <-
           runDB $
             upsertBy
-              (UniqueResource resourceName resourceTypeName)
+              (UniqueResource resourceTypeName resourceName)
               ( Resource
                   { resourceName = resourceName,
                     resourceProvider = resourceTypeName,

@@ -37,7 +37,7 @@ Resource
   -- specification JSON.Value
   reference JSON.Value
 
-  UniqueResource name provider
+  UniqueResource provider name
 
   deriving Show
   deriving Eq
