@@ -77,6 +77,7 @@ providerJSONSpec _ = do
 localProviderSpec ::
   forall input reference output i.
   ( Show input,
+    Eq input,
     Validity reference,
     Show reference,
     Eq reference,
@@ -89,7 +90,7 @@ localProviderSpec ::
   (i -> Gen input) ->
   SpecWith i
 localProviderSpec Provider {..} genReference genInput = do
-  modifyMaxSuccess (`div` 50) $
+  modifyMaxSuccess (`div` 10) $
     describe (T.unpack $ unProviderName providerName) $ do
       describe "query" $ do
         it "is idempotent if the resource does not exist remotely" $ \i ->
@@ -183,6 +184,18 @@ localProviderSpec Provider {..} genReference genInput = do
                   CheckFailure err -> expectationFailure err
                   CheckSuccess -> pure ()
 
+        it "fails the check after applying a different input" $ \i ->
+          forAll (genInput i) $ \input1 ->
+            forAll (genInput i `suchThat` (/= input1)) $ \input2 -> do
+              applyResult <- providerApply input1 DoesNotExistLocallyNorRemotely
+              case applyResult of
+                ApplyFailure err -> expectationFailure err
+                ApplySuccess reference _ -> do
+                  checkResult <- providerCheck input2 reference
+                  case checkResult of
+                    CheckSuccess -> expectationFailure "should not have succeeded"
+                    CheckFailure _ -> pure ()
+
         it "can apply a change and pass a check" $ \i ->
           forAll (genInput i) $ \input1 ->
             forAll (genInput i) $ \input2 -> do
@@ -227,6 +240,27 @@ localProviderSpec Provider {..} genReference genInput = do
                 checkResult1 <- providerCheck input reference
                 checkResult2 <- providerCheck input reference
                 checkResult1 `shouldBe` checkResult2
+
+        it "fails the check if nothing has been applied" $ \i ->
+          forAll (genInput i) $ \input -> do
+            forAll (genReference i) $ \reference -> do
+              checkResult <- providerCheck input reference
+              case checkResult of
+                CheckSuccess -> expectationFailure "should not have succeeded"
+                CheckFailure _ -> pure ()
+
+        it "fails the check after a destroy" $ \i ->
+          forAll (genInput i) $ \input -> do
+            applyResult <- providerApply input DoesNotExistLocallyNorRemotely
+            case applyResult of
+              ApplyFailure err -> expectationFailure err
+              ApplySuccess reference _ -> do
+                destroyResult <- providerDestroy reference
+                destroyResult `shouldBe` DestroySuccess
+                checkResult <- providerCheck input reference
+                case checkResult of
+                  CheckSuccess -> expectationFailure "should not have succeeded"
+                  CheckFailure _ -> pure ()
 
       describe "destroy" $ do
         it "can destroy a resource that was just created" $ \i ->
