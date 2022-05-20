@@ -9,6 +9,7 @@ import Database.Persist
 import Declops.DB
 import Declops.Env
 import Declops.Provider
+import System.Exit
 import UnliftIO
 
 declopsCheck :: C ()
@@ -16,11 +17,11 @@ declopsCheck = do
   logDebugN "Parsing specification"
   specifications <- nixEval
 
-  tups <- forConcurrently specifications $
+  results <- forConcurrently specifications $
     \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
       mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
 
-      checkResult <- case mLocalResource of
+      case mLocalResource of
         Nothing ->
           pure $
             CheckFailure $
@@ -37,5 +38,7 @@ declopsCheck = do
                 ]
           let reference = resourceReference resource
           liftIO $ providerCheck provider specification reference
-      pure (currentResourceName, checkResult)
-  liftIO $ mapM_ print tups
+
+  if any checkFailed results
+    then liftIO exitFailure
+    else pure ()

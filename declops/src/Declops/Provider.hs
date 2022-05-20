@@ -136,6 +136,11 @@ data CheckResult
   | CheckFailure !String
   deriving (Show, Eq, Generic)
 
+checkFailed :: CheckResult -> Bool
+checkFailed = \case
+  CheckSuccess -> False
+  CheckFailure _ -> True
+
 data DestroyResult
   = DestroySuccess
   | DestroyFailure !String
