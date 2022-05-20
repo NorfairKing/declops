@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Declops.Command.Apply (declopsApply) where
 
@@ -11,15 +10,13 @@ import qualified Data.Text as T
 import Database.Persist
 import Declops.DB
 import Declops.Env
-import Declops.OptParse
 import Declops.Provider
 import System.Exit
 
-declopsApply :: ApplySettings -> C ()
-declopsApply ApplySettings {..} = do
+declopsApply :: C ()
+declopsApply = do
   logDebugN "Parsing specification"
-
-  specifications <- nixEval applySettingDeploymentFile
+  specifications <- nixEval
 
   applyContexts <- forM specifications $
     \(SomeSpecification resourceTypeName resourceName specification provider) -> do

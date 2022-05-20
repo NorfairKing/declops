@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Declops.Command.Query (declopsQuery) where
 
@@ -10,13 +9,12 @@ import qualified Data.Text as T
 import Database.Persist
 import Declops.DB
 import Declops.Env
-import Declops.OptParse
 import Declops.Provider
 
-declopsQuery :: QuerySettings -> C ()
-declopsQuery QuerySettings {..} = do
+declopsQuery :: C ()
+declopsQuery = do
   logDebugN "Parsing specification"
-  specifications <- nixEval querySettingDeploymentFile
+  specifications <- nixEval
 
   trips <- forM specifications $
     \(SomeSpecification resourceTypeName resourceName _ provider) -> do

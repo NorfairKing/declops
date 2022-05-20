@@ -35,47 +35,33 @@ getInstructions = do
   combineToInstructions args env config
 
 data Settings = Settings
-  { settingStateFile :: !(Path Abs File),
+  { settingDeploymentFile :: !(Path Abs File),
+    settingStateFile :: !(Path Abs File),
     settingLogLevel :: !LogLevel
   }
   deriving (Show, Eq, Generic)
 
 data Dispatch
-  = DispatchQuery !QuerySettings
-  | DispatchApply !ApplySettings
-  deriving (Show, Eq, Generic)
-
-data QuerySettings = QuerySettings
-  { querySettingDeploymentFile :: !(Path Abs File)
-  }
-  deriving (Show, Eq, Generic)
-
-data ApplySettings = ApplySettings
-  { applySettingDeploymentFile :: !(Path Abs File)
-  }
+  = DispatchQuery
+  | DispatchApply
   deriving (Show, Eq, Generic)
 
 combineToInstructions :: Arguments -> Environment -> Maybe Configuration -> IO Instructions
 combineToInstructions (Arguments cmd Flags {..}) Environment {..} mConf = do
+  settingDeploymentFile <-
+    resolveFile' $
+      fromMaybe "deployment.nix" $
+        flagDeploymentFile <|> envDeploymentFile <|> (mConf >>= configDeploymentFile)
   settingStateFile <-
     resolveFile' $
       fromMaybe "declops-state.sqlite3" $
         flagStateFile <|> envStateFile <|> (mConf >>= configStateFile)
-  let defaultDeploymentFile = "deployment.nix"
-  dispatch <- case cmd of
-    CommandQuery QueryArgs {..} -> do
-      querySettingDeploymentFile <-
-        resolveFile' $
-          fromMaybe defaultDeploymentFile $
-            queryArgDeploymentFile <|> envDeploymentFile <|> (mConf >>= configDeploymentFile)
-      pure $ DispatchQuery QuerySettings {..}
-    CommandApply ApplyArgs {..} -> do
-      applySettingDeploymentFile <-
-        resolveFile' $
-          fromMaybe defaultDeploymentFile $
-            applyArgDeploymentFile <|> envDeploymentFile <|> (mConf >>= configDeploymentFile)
-      pure $ DispatchApply ApplySettings {..}
   let settingLogLevel = fromMaybe LevelWarn $ flagLogLevel <|> envLogLevel <|> (mConf >>= configLogLevel)
+  dispatch <- case cmd of
+    CommandQuery -> do
+      pure DispatchQuery
+    CommandApply -> do
+      pure DispatchApply
   pure $ Instructions dispatch Settings {..}
 
 data Configuration = Configuration
@@ -159,53 +145,33 @@ parseArgs :: OptParse.Parser Arguments
 parseArgs = Arguments <$> parseCommand <*> parseFlags
 
 data Command
-  = CommandQuery QueryArgs
-  | CommandApply ApplyArgs
+  = CommandQuery
+  | CommandApply
   deriving (Show, Eq, Generic)
 
 parseCommand :: OptParse.Parser Command
 parseCommand =
   OptParse.hsubparser $
     mconcat
-      [ OptParse.command "query" $ CommandQuery <$> parseCommandQuery,
-        OptParse.command "apply" $ CommandApply <$> parseCommandApply
+      [ OptParse.command "query" parseCommandQuery,
+        OptParse.command "apply" parseCommandApply
       ]
 
-data QueryArgs = QueryArgs
-  { queryArgDeploymentFile :: !(Maybe FilePath)
-  }
-  deriving (Show, Eq, Generic)
-
-parseCommandQuery :: OptParse.ParserInfo QueryArgs
+parseCommandQuery :: OptParse.ParserInfo Command
 parseCommandQuery = OptParse.info parser modifier
   where
     modifier = OptParse.fullDesc <> OptParse.progDesc "Query a deployment"
-    parser = QueryArgs <$> optional parseDeploymentFileOption
+    parser = pure CommandQuery
 
-data ApplyArgs = ApplyArgs
-  { applyArgDeploymentFile :: !(Maybe FilePath)
-  }
-  deriving (Show, Eq, Generic)
-
-parseCommandApply :: OptParse.ParserInfo ApplyArgs
+parseCommandApply :: OptParse.ParserInfo Command
 parseCommandApply = OptParse.info parser modifier
   where
     modifier = OptParse.fullDesc <> OptParse.progDesc "Apply a deployment"
-    parser = ApplyArgs <$> optional parseDeploymentFileOption
-
-parseDeploymentFileOption :: OptParse.Parser FilePath
-parseDeploymentFileOption =
-  strOption
-    ( mconcat
-        [ short 'd',
-          long "deployment-file",
-          help "Path to a deployment file",
-          metavar "FILEPATH"
-        ]
-    )
+    parser = pure CommandApply
 
 data Flags = Flags
-  { flagConfigFile :: !(Maybe FilePath),
+  { flagDeploymentFile :: !(Maybe FilePath),
+    flagConfigFile :: !(Maybe FilePath),
     flagStateFile :: !(Maybe FilePath),
     flagLogLevel :: !(Maybe LogLevel)
   }
@@ -215,6 +181,16 @@ parseFlags :: OptParse.Parser Flags
 parseFlags =
   Flags
     <$> optional
+      ( strOption
+          ( mconcat
+              [ short 'd',
+                long "deployment-file",
+                help "Path to a deployment file",
+                metavar "FILEPATH"
+              ]
+          )
+      )
+    <*> optional
       ( strOption
           ( mconcat
               [ long "config-file",

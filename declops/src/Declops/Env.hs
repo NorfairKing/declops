@@ -17,7 +17,7 @@ import qualified Data.Text.Encoding as TE
 import Database.Persist.Sql
 import Database.Persist.Sqlite
 import Declops.DB
-import Declops.OptParse
+import Declops.OptParse (Settings (..))
 import Declops.Provider
 import Declops.Provider.TempDir
 import Declops.Provider.TempFile
@@ -28,7 +28,8 @@ import System.Process.Typed
 type C a = ReaderT Env (LoggingT IO) a
 
 data Env = Env
-  { envConnectionPool :: !ConnectionPool
+  { envDeploymentFile :: !(Path Abs File),
+    envConnectionPool :: !ConnectionPool
   }
 
 runDB :: SqlPersistT IO a -> C a
@@ -42,18 +43,20 @@ runC Settings {..} func = do
     filterLogger (\_ ll -> ll >= settingLogLevel) $
       withSqlitePool (T.pack (fromAbsFile settingStateFile)) 1 $ \pool -> do
         runSqlPool (runMigration localMigration) pool
+        let envDeploymentFile = settingDeploymentFile
         let envConnectionPool = pool
         runReaderT func Env {..}
 
-nixEval :: Path Abs File -> C [SomeSpecification]
-nixEval file = do
-  maps <- nixEvalRaw file
+nixEval :: C [SomeSpecification]
+nixEval = do
+  maps <- nixEvalRaw
   case mapsToSpecificationPairs maps of
     Left err -> liftIO $ die err
     Right specs -> pure specs
 
-nixEvalRaw :: Path Abs File -> C (Map Text (Map Text JSON.Value))
-nixEvalRaw file = do
+nixEvalRaw :: C (Map Text (Map Text JSON.Value))
+nixEvalRaw = do
+  file <- asks envDeploymentFile
   (exitCode, bs) <-
     liftIO $
       readProcessStdout $
