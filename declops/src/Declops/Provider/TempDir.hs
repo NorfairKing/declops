@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Declops.Provider.TempDir where
 
@@ -32,8 +34,11 @@ instance HasCodec TempDirSpecification where
   codec =
     object "TempDirSpecification" $
       TempDirSpecification
-        <$> requiredFieldWith "base" (bimapCodec (left show . parseAbsDir) fromAbsDir codec) "base directory" .= tempDirSpecificationBase
+        <$> requiredField "base" "base directory" .= tempDirSpecificationBase
         <*> requiredField "template" "template directory name" .= tempDirSpecificationTemplate
+
+instance HasCodec (Path Abs Dir) where
+  codec = bimapCodec (left show . parseAbsDir) fromAbsDir codec
 
 data TempDirOutput = TempDirOutput
   { tempDirOutputPath :: !(Path Abs Dir)

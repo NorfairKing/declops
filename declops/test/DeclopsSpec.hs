@@ -6,11 +6,14 @@
 
 module DeclopsSpec (spec) where
 
+import Autodocodec
+import Autodocodec.Yaml
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Data
 import Data.GenValidity.Path ()
 import Data.GenValidity.Text ()
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Declops.DB
 import Declops.Provider
 import Declops.Provider.TempDir
@@ -54,25 +57,37 @@ providerJSONSpec ::
     Typeable input,
     FromJSON input,
     ToJSON input,
+    HasCodec input,
     Show reference,
     Eq reference,
     GenValid reference,
     Typeable reference,
     FromJSON reference,
     ToJSON reference,
+    HasCodec reference,
     Show output,
     Eq output,
     GenValid output,
     Typeable output,
     FromJSON output,
-    ToJSON output
+    ToJSON output,
+    HasCodec output
   ) =>
   Provider input reference output ->
   Spec
-providerJSONSpec _ = do
+providerJSONSpec provider = do
   jsonSpec @input
+  it "produces the same input schema as before" $
+    let fp = concat ["test_resources/providers/", T.unpack (unProviderName (providerName provider)), "/schemas/input.txt"]
+     in pureGoldenTextFile fp (TE.decodeUtf8 (renderColouredSchemaViaCodec @input))
   jsonSpec @reference
+  it "produces the same reference schema as before" $
+    let fp = concat ["test_resources/providers/", T.unpack (unProviderName (providerName provider)), "/schemas/reference.txt"]
+     in pureGoldenTextFile fp (TE.decodeUtf8 (renderColouredSchemaViaCodec @reference))
   jsonSpec @output
+  it "produces the same output schema as before" $
+    let fp = concat ["test_resources/providers/", T.unpack (unProviderName (providerName provider)), "/schemas/output.txt"]
+     in pureGoldenTextFile fp (TE.decodeUtf8 (renderColouredSchemaViaCodec @output))
 
 localProviderSpec ::
   forall input reference output i.

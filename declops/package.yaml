@@ -58,6 +58,8 @@ tests:
     dependencies:
     - QuickCheck
     - aeson
+    - autodocodec
+    - autodocodec-yaml
     - declops
     - genvalidity-aeson
     - genvalidity-path

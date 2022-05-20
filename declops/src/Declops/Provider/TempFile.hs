@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Declops.Provider.TempFile where
 
@@ -16,6 +18,7 @@ import Data.Validity
 import Data.Validity.Path ()
 import Data.Validity.Text ()
 import Declops.Provider
+import Declops.Provider.TempDir ()
 import GHC.Generics (Generic)
 import Path
 import Path.IO
@@ -35,7 +38,7 @@ instance HasCodec TempFileSpecification where
   codec =
     object "TempFileSpecification" $
       TempFileSpecification
-        <$> requiredFieldWith "base" (bimapCodec (left show . parseAbsDir) fromAbsDir codec) "base dir" .= tempFileSpecificationBase
+        <$> requiredField "base" "base dir" .= tempFileSpecificationBase
         <*> requiredField "template" "template file name" .= tempFileSpecificationTemplate
         <*> requiredField "contents" "file contents" .= tempFileSpecificationContents
 
@@ -52,8 +55,11 @@ instance HasCodec TempFileOutput where
   codec =
     object "TempFileOutput" $
       TempFileOutput
-        <$> requiredFieldWith "path" (bimapCodec (left show . parseAbsFile) fromAbsFile codec) "file path" .= tempFileOutputPath
+        <$> requiredField "path" "file path" .= tempFileOutputPath
         <*> requiredField "contents" "file contents" .= tempFileOutputContents
+
+instance HasCodec (Path Abs File) where
+  codec = bimapCodec (left show . parseAbsFile) fromAbsFile codec
 
 tempFileProvider :: Provider TempFileSpecification (Path Abs File) TempFileOutput
 tempFileProvider =

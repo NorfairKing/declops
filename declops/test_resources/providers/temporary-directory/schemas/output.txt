@@ -1,0 +1,4 @@
+# TempDirOutput
+[37mpath[m: # [31mrequired[m
+  # dir path
+  [33m<string>[m

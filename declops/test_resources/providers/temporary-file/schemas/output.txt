@@ -1,0 +1,7 @@
+# TempFileOutput
+[37mpath[m: # [31mrequired[m
+  # file path
+  [33m<string>[m
+[37mcontents[m: # [31mrequired[m
+  # file contents
+  [33m<string>[m
