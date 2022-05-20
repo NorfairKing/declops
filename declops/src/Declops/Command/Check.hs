@@ -18,12 +18,6 @@ declopsCheck = do
 
   tups <- forConcurrently specifications $
     \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
-      logDebugN $
-        T.pack $
-          unwords
-            [ "Checking current state of",
-              concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
-            ]
       mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
 
       checkResult <- case mLocalResource of
@@ -35,6 +29,12 @@ declopsCheck = do
                     <> concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
                 ]
         Just (Entity _ resource) -> do
+          logDebugN $
+            T.pack $
+              unwords
+                [ "Checking",
+                  concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                ]
           let reference = resourceReference resource
           liftIO $ providerCheck provider specification reference
       pure (currentResourceName, checkResult)
