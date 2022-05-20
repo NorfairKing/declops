@@ -26,6 +26,8 @@ import Data.Aeson as JSON
 import qualified Data.ByteString.Lazy as LB
 import Data.Proxy
 import qualified Data.Text as T
+import Data.Validity
+import Data.Validity.Aeson ()
 import Database.Persist.Sqlite
 import Database.Persist.TH
 import Declops.DB.ProviderName
@@ -60,3 +62,9 @@ instance PersistField JSON.Value where
 
 instance PersistFieldSql JSON.Value where
   sqlType Proxy = SqlBlob
+
+instance Validity ResourceReference
+
+instance Validity ProviderName
+
+instance Validity ResourceName

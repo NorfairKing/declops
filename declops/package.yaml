@@ -1,6 +1,9 @@
 name: declops
 version: 0.0.0.0
 
+extra-source-files:
+- test-resources/**/*
+
 dependencies:
 - base >= 4.7 && < 5
 
@@ -27,6 +30,7 @@ library:
     - typed-process
     - unliftio
     - validity
+    - validity-aeson
     - validity-path
     - validity-text
     - yaml
@@ -55,11 +59,14 @@ tests:
     - QuickCheck
     - aeson
     - declops
+    - genvalidity-aeson
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-sydtest-aeson
+    - genvalidity-sydtest-persistent
     - genvalidity-text
     - path
     - path-io
     - sydtest
+    - sydtest-persistent-sqlite
     - text

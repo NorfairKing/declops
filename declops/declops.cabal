@@ -51,6 +51,7 @@ library
     , typed-process
     , unliftio
     , validity
+    , validity-aeson
     , validity-path
     , validity-text
     , yaml
@@ -72,6 +73,7 @@ test-suite declops-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Declops.DBSpec
       DeclopsSpec
       Paths_declops
   hs-source-dirs:
@@ -84,12 +86,15 @@ test-suite declops-test
     , aeson
     , base >=4.7 && <5
     , declops
+    , genvalidity-aeson
     , genvalidity-path
     , genvalidity-sydtest
     , genvalidity-sydtest-aeson
+    , genvalidity-sydtest-persistent
     , genvalidity-text
     , path
     , path-io
     , sydtest
+    , sydtest-persistent-sqlite
     , text
   default-language: Haskell2010
