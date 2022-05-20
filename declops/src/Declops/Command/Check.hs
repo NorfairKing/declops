@@ -18,8 +18,8 @@ declopsCheck = do
   specifications <- nixEval
 
   results <- forConcurrently specifications $
-    \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
-      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
+    \(SomeSpecification resourceTypeName resourceName specification provider) -> do
+      mLocalResource <- runDB $ getBy $ UniqueResourceReference resourceTypeName resourceName
 
       case mLocalResource of
         Nothing ->
@@ -27,16 +27,16 @@ declopsCheck = do
             CheckFailure $
               unwords
                 [ "Resource does not exist locally: "
-                    <> concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                    <> concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
-        Just (Entity _ resource) -> do
+        Just (Entity _ resourceReference) -> do
           logDebugN $
             T.pack $
               unwords
                 [ "Checking",
-                  concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                  concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
-          let reference = resourceReference resource
+          let reference = resourceReferenceReference resourceReference
           liftIO $ providerCheck provider specification reference
 
   if any checkFailed results

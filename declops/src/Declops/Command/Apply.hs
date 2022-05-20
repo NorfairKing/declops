@@ -19,33 +19,33 @@ declopsApply = do
   specifications <- nixEval
 
   applyContexts <- forConcurrently specifications $
-    \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
+    \(SomeSpecification resourceTypeName resourceName specification provider) -> do
       logDebugN $
         T.pack $
           unwords
             [ "Querying current state of",
-              concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+              concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
             ]
-      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
+      mLocalResource <- runDB $ getBy $ UniqueResourceReference resourceTypeName resourceName
 
       applyContext <- case mLocalResource of
         Nothing -> pure DoesNotExistLocallyNorRemotely
-        Just (Entity _ resource) -> do
-          let reference = resourceReference resource
+        Just (Entity _ resourceReference) -> do
+          let reference = resourceReferenceReference resourceReference
           remoteState <- liftIO $ providerQuery provider reference
           pure $ case remoteState of
             DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
             ExistsRemotely output -> ExistsLocallyAndRemotely reference output
 
-      pure (SomeSpecification resourceTypeName currentResourceName specification provider, applyContext)
+      pure (SomeSpecification resourceTypeName resourceName specification provider, applyContext)
 
-  results <- forConcurrently applyContexts $ \(SomeSpecification resourceTypeName currentResourceName specification provider, applyContext) -> do
+  results <- forConcurrently applyContexts $ \(SomeSpecification resourceTypeName resourceName specification provider, applyContext) -> do
     logInfoN $
       T.pack $
         unlines
           [ unwords
               [ "Applying",
-                concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
               ],
             showJSON specification
           ]
@@ -57,7 +57,7 @@ declopsApply = do
             unlines
               [ unwords
                   [ "Failed to apply:",
-                    concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                    concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                   ],
                 err
               ]
@@ -67,7 +67,7 @@ declopsApply = do
             unlines
               [ unwords
                   [ "Applied successfully:",
-                    concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                    concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                   ],
                 showJSON reference,
                 showJSON output
@@ -75,14 +75,14 @@ declopsApply = do
         _ <-
           runDB $
             upsertBy
-              (UniqueResource resourceTypeName currentResourceName)
-              ( Resource
-                  { resourceName = currentResourceName,
-                    resourceProvider = resourceTypeName,
-                    resourceReference = toJSON reference
+              (UniqueResourceReference resourceTypeName resourceName)
+              ( ResourceReference
+                  { resourceReferenceName = resourceName,
+                    resourceReferenceProvider = resourceTypeName,
+                    resourceReferenceReference = toJSON reference
                   }
               )
-              [ResourceReference =. toJSON reference]
+              [ResourceReferenceReference =. toJSON reference]
         pure ()
     pure applyResult
 

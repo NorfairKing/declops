@@ -14,7 +14,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Declops.DB where
+module Declops.DB
+  ( module Declops.DB,
+    module Declops.DB.ResourceName,
+  )
+where
 
 import Control.Arrow (left)
 import Data.Aeson as JSON
@@ -24,20 +28,21 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Database.Persist.Sqlite
 import Database.Persist.TH
+import Declops.DB.ResourceName
 import GHC.Generics (Generic)
 
 share
   [mkPersist sqlSettings, mkMigrate "localMigration"]
   [persistLowerCase|
 
-Resource
-  name Text
+ResourceReference
+  name ResourceName
   provider Text
   -- TODO do we need this?
   -- specification JSON.Value
   reference JSON.Value
 
-  UniqueResource provider name
+  UniqueResourceReference provider name
 
   deriving Show
   deriving Eq

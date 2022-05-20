@@ -18,8 +18,8 @@ declopsDestroy = do
   specifications <- nixEval
 
   results <- forConcurrently specifications $
-    \(SomeSpecification resourceTypeName currentResourceName _ provider) -> do
-      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
+    \(SomeSpecification resourceTypeName resourceName _ provider) -> do
+      mLocalResource <- runDB $ getBy $ UniqueResourceReference resourceTypeName resourceName
       case mLocalResource of
         Nothing -> do
           -- There was nothing to destroy, so we don't do anything but still
@@ -30,17 +30,17 @@ declopsDestroy = do
             T.pack $
               unwords
                 [ "Not destroying because it doesn't exist locally:",
-                  concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                  concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
           pure DestroySuccess
-        Just (Entity resourceId resource) -> do
+        Just (Entity resourceId resourceReference) -> do
           logInfoN $
             T.pack $
               unwords
                 [ "Destroying",
-                  concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
+                  concat [T.unpack resourceTypeName, ".", T.unpack $ unResourceName resourceName]
                 ]
-          destroyResult <- liftIO $ providerDestroy provider (resourceReference resource)
+          destroyResult <- liftIO $ providerDestroy provider (resourceReferenceReference resourceReference)
           runDB $ delete resourceId
           pure destroyResult
 

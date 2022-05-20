@@ -54,7 +54,7 @@ nixEval = do
     Left err -> liftIO $ die err
     Right specs -> pure specs
 
-nixEvalRaw :: C (Map Text (Map Text JSON.Value))
+nixEvalRaw :: C (Map Text (Map ResourceName JSON.Value))
 nixEvalRaw = do
   file <- asks envDeploymentFile
   (exitCode, bs) <-
@@ -75,7 +75,7 @@ nixEvalRaw = do
       Right output -> pure output
 
 -- TODO list of errors instead of only a single one
-mapsToSpecificationPairs :: Map Text (Map Text JSON.Value) -> Either String [SomeSpecification]
+mapsToSpecificationPairs :: Map Text (Map ResourceName JSON.Value) -> Either String [SomeSpecification]
 mapsToSpecificationPairs m =
   fmap concat $
     forM (M.toList m) $ \(resourceTypeName, resources) ->
@@ -103,7 +103,7 @@ allProviders =
 data SomeSpecification
   = SomeSpecification
       !Text -- Resource type name
-      !Text -- Resource name
+      !ResourceName -- Resource name
       !JSON.Value
       !JSONProvider
 
