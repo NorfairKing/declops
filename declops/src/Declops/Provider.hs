@@ -150,3 +150,8 @@ data DestroyResult
   = DestroySuccess
   | DestroyFailure !String
   deriving (Show, Eq, Generic)
+
+destroyFailed :: DestroyResult -> Bool
+destroyFailed = \case
+  DestroySuccess -> False
+  DestroyFailure _ -> True

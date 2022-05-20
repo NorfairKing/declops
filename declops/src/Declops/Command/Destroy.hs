@@ -9,6 +9,7 @@ import Database.Persist
 import Declops.DB
 import Declops.Env
 import Declops.Provider
+import System.Exit
 import UnliftIO
 
 declopsDestroy :: C ()
@@ -16,10 +17,10 @@ declopsDestroy = do
   logDebugN "Parsing specification"
   specifications <- nixEval
 
-  tups <- forConcurrently specifications $
+  results <- forConcurrently specifications $
     \(SomeSpecification resourceTypeName currentResourceName _ provider) -> do
       mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
-      destroyResult <- case mLocalResource of
+      case mLocalResource of
         Nothing -> do
           -- There was nothing to destroy, so we don't do anything but still
           -- consider it a success.
@@ -43,5 +44,6 @@ declopsDestroy = do
           runDB $ delete resourceId
           pure destroyResult
 
-      pure (currentResourceName, destroyResult)
-  liftIO $ mapM_ print tups
+  if any destroyFailed results
+    then liftIO exitFailure
+    else pure ()
