@@ -2,7 +2,6 @@
 
 module Declops.Command.Apply (declopsApply) where
 
-import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson as JSON
@@ -12,13 +11,14 @@ import Declops.DB
 import Declops.Env
 import Declops.Provider
 import System.Exit
+import UnliftIO
 
 declopsApply :: C ()
 declopsApply = do
   logDebugN "Parsing specification"
   specifications <- nixEval
 
-  applyContexts <- forM specifications $
+  applyContexts <- forConcurrently specifications $
     \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
       logDebugN $
         T.pack $
@@ -39,7 +39,7 @@ declopsApply = do
 
       pure (SomeSpecification resourceTypeName currentResourceName specification provider, applyContext)
 
-  forM_ applyContexts $ \(SomeSpecification resourceTypeName currentResourceName specification provider, applyContext) -> do
+  forConcurrently_ applyContexts $ \(SomeSpecification resourceTypeName currentResourceName specification provider, applyContext) -> do
     logInfoN $
       T.pack $
         unlines

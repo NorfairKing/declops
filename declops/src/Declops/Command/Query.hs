@@ -2,7 +2,6 @@
 
 module Declops.Command.Query (declopsQuery) where
 
-import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import qualified Data.Text as T
@@ -10,13 +9,14 @@ import Database.Persist
 import Declops.DB
 import Declops.Env
 import Declops.Provider
+import UnliftIO
 
 declopsQuery :: C ()
 declopsQuery = do
   logDebugN "Parsing specification"
   specifications <- nixEval
 
-  trips <- forM specifications $
+  trips <- forConcurrently specifications $
     \(SomeSpecification resourceTypeName currentResourceName _ provider) -> do
       logDebugN $
         T.pack $

@@ -2,7 +2,6 @@
 
 module Declops.Command.Check (declopsCheck) where
 
-import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import qualified Data.Text as T
@@ -10,13 +9,14 @@ import Database.Persist
 import Declops.DB
 import Declops.Env
 import Declops.Provider
+import UnliftIO
 
 declopsCheck :: C ()
 declopsCheck = do
   logDebugN "Parsing specification"
   specifications <- nixEval
 
-  tups <- forM specifications $
+  tups <- forConcurrently specifications $
     \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
       logDebugN $
         T.pack $

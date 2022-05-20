@@ -25,6 +25,7 @@ library:
     - persistent-template
     - text
     - typed-process
+    - unliftio
     - validity
     - validity-path
     - validity-text
