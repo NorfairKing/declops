@@ -40,7 +40,7 @@ toJSONProvider provider =
           providerCheck = \specificationJSON referenceJSON -> do
             reference <- parseJSONOrErr referenceJSON
             specification <- parseJSONOrErr specificationJSON
-            providerCheck provider reference specification,
+            providerCheck provider specification reference,
           providerDestroy = \referenceJSON remoteStateJSON -> do
             reference <- parseJSONOrErr referenceJSON
             remoteState <- mapM parseJSONOrErr remoteStateJSON

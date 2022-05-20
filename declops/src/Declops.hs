@@ -10,3 +10,4 @@ declopsMain = do
   runC settings $ case dispatch of
     DispatchQuery -> declopsQuery
     DispatchApply -> declopsApply
+    DispatchCheck -> declopsCheck

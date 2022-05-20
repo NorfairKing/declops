@@ -13,6 +13,7 @@ library
       Declops
       Declops.Command
       Declops.Command.Apply
+      Declops.Command.Check
       Declops.Command.Query
       Declops.DB
       Declops.Env

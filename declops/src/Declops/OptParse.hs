@@ -44,6 +44,7 @@ data Settings = Settings
 data Dispatch
   = DispatchQuery
   | DispatchApply
+  | DispatchCheck
   deriving (Show, Eq, Generic)
 
 combineToInstructions :: Arguments -> Environment -> Maybe Configuration -> IO Instructions
@@ -62,6 +63,8 @@ combineToInstructions (Arguments cmd Flags {..}) Environment {..} mConf = do
       pure DispatchQuery
     CommandApply -> do
       pure DispatchApply
+    CommandCheck -> do
+      pure DispatchCheck
   pure $ Instructions dispatch Settings {..}
 
 data Configuration = Configuration
@@ -147,6 +150,7 @@ parseArgs = Arguments <$> parseCommand <*> parseFlags
 data Command
   = CommandQuery
   | CommandApply
+  | CommandCheck
   deriving (Show, Eq, Generic)
 
 parseCommand :: OptParse.Parser Command
@@ -154,7 +158,8 @@ parseCommand =
   OptParse.hsubparser $
     mconcat
       [ OptParse.command "query" parseCommandQuery,
-        OptParse.command "apply" parseCommandApply
+        OptParse.command "apply" parseCommandApply,
+        OptParse.command "check" parseCommandCheck
       ]
 
 parseCommandQuery :: OptParse.ParserInfo Command
@@ -168,6 +173,12 @@ parseCommandApply = OptParse.info parser modifier
   where
     modifier = OptParse.fullDesc <> OptParse.progDesc "Apply a deployment"
     parser = pure CommandApply
+
+parseCommandCheck :: OptParse.ParserInfo Command
+parseCommandCheck = OptParse.info parser modifier
+  where
+    modifier = OptParse.fullDesc <> OptParse.progDesc "Check a deployment"
+    parser = pure CommandCheck
 
 data Flags = Flags
   { flagDeploymentFile :: !(Maybe FilePath),

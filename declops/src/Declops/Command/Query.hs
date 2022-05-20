@@ -17,14 +17,14 @@ declopsQuery = do
   specifications <- nixEval
 
   trips <- forM specifications $
-    \(SomeSpecification resourceTypeName resourceName _ provider) -> do
+    \(SomeSpecification resourceTypeName currentResourceName _ provider) -> do
       logDebugN $
         T.pack $
           unwords
             [ "Querying current state of",
-              concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
+              concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
             ]
-      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName resourceName
+      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
 
       remoteState <- case mLocalResource of
         Nothing -> pure DoesNotExistLocallyNorRemotely
@@ -34,5 +34,5 @@ declopsQuery = do
           pure $ case remoteState of
             DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
             ExistsRemotely output -> ExistsLocallyAndRemotely reference output
-      pure (resourceName, remoteState)
+      pure (currentResourceName, remoteState)
   liftIO $ mapM_ print trips

@@ -19,14 +19,14 @@ declopsApply = do
   specifications <- nixEval
 
   applyContexts <- forM specifications $
-    \(SomeSpecification resourceTypeName resourceName specification provider) -> do
+    \(SomeSpecification resourceTypeName currentResourceName specification provider) -> do
       logDebugN $
         T.pack $
           unwords
             [ "Querying current state of",
-              concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
+              concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
             ]
-      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName resourceName
+      mLocalResource <- runDB $ getBy $ UniqueResource resourceTypeName currentResourceName
 
       applyContext <- case mLocalResource of
         Nothing -> pure DoesNotExistLocallyNorRemotely
@@ -37,15 +37,15 @@ declopsApply = do
             DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
             ExistsRemotely output -> ExistsLocallyAndRemotely reference output
 
-      pure (SomeSpecification resourceTypeName resourceName specification provider, applyContext)
+      pure (SomeSpecification resourceTypeName currentResourceName specification provider, applyContext)
 
-  forM_ applyContexts $ \(SomeSpecification resourceTypeName resourceName specification provider, applyContext) -> do
+  forM_ applyContexts $ \(SomeSpecification resourceTypeName currentResourceName specification provider, applyContext) -> do
     logInfoN $
       T.pack $
         unlines
           [ unwords
               [ "Applying",
-                concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
+                concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
               ],
             showJSON specification
           ]
@@ -56,7 +56,7 @@ declopsApply = do
           T.pack $
             unwords
               [ "Failed to apply:",
-                concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
+                concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
               ]
         liftIO $ die err
       ApplySuccess reference output -> do
@@ -65,7 +65,7 @@ declopsApply = do
             unlines
               [ unwords
                   [ "Applied successfully:",
-                    concat [T.unpack resourceTypeName, ".", T.unpack resourceName]
+                    concat [T.unpack resourceTypeName, ".", T.unpack currentResourceName]
                   ],
                 showJSON reference,
                 showJSON output
@@ -73,9 +73,9 @@ declopsApply = do
         _ <-
           runDB $
             upsertBy
-              (UniqueResource resourceTypeName resourceName)
+              (UniqueResource resourceTypeName currentResourceName)
               ( Resource
-                  { resourceName = resourceName,
+                  { resourceName = currentResourceName,
                     resourceProvider = resourceTypeName,
                     resourceReference = toJSON reference
                   }
