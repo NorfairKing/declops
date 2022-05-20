@@ -11,3 +11,4 @@ declopsMain = do
     DispatchQuery -> declopsQuery
     DispatchApply -> declopsApply
     DispatchCheck -> declopsCheck
+    DispatchDestroy -> declopsDestroy
