@@ -197,7 +197,7 @@ localProviderSpec Provider {..} genReference genInput = do
                 checkResult <- providerCheck input reference
                 case checkResult of
                   CheckFailure err -> expectationFailure err
-                  CheckSuccess -> pure ()
+                  CheckSuccess _ -> pure ()
 
         it "fails the check after applying a different input" $ \i ->
           forAll (genInput i) $ \input1 ->
@@ -208,8 +208,13 @@ localProviderSpec Provider {..} genReference genInput = do
                 ApplySuccess reference _ -> do
                   checkResult <- providerCheck input2 reference
                   case checkResult of
-                    CheckSuccess -> expectationFailure "should not have succeeded"
                     CheckFailure _ -> pure ()
+                    CheckSuccess output ->
+                      expectationFailure $
+                        unlines
+                          [ "should not have succeeded, but did and got this output:",
+                            ppShow output
+                          ]
 
         it "can apply a change and pass a check" $ \i ->
           forAll (genInput i) $ \input1 ->
@@ -229,7 +234,7 @@ localProviderSpec Provider {..} genReference genInput = do
                                   checkResult <- providerCheck input2 reference2
                                   case checkResult of
                                     CheckFailure err -> expectationFailure err
-                                    CheckSuccess -> pure ()
+                                    CheckSuccess _ -> pure ()
 
         it "can re-create a resource that exists locally but not remotely and pass a check" $ \i ->
           forAll (genReference i) $ \reference1 ->
@@ -241,7 +246,7 @@ localProviderSpec Provider {..} genReference genInput = do
                   checkResult <- providerCheck input reference
                   case checkResult of
                     CheckFailure err -> expectationFailure err
-                    CheckSuccess -> pure ()
+                    CheckSuccess _ -> pure ()
 
       describe "check" $ do
         it "is idempotent" $ \i ->
@@ -261,8 +266,13 @@ localProviderSpec Provider {..} genReference genInput = do
             forAll (genReference i) $ \reference -> do
               checkResult <- providerCheck input reference
               case checkResult of
-                CheckSuccess -> expectationFailure "should not have succeeded"
                 CheckFailure _ -> pure ()
+                CheckSuccess output ->
+                  expectationFailure $
+                    unlines
+                      [ "should not have succeeded, but did and got this output:",
+                        ppShow output
+                      ]
 
         it "fails the check after a destroy" $ \i ->
           forAll (genInput i) $ \input -> do
@@ -272,10 +282,16 @@ localProviderSpec Provider {..} genReference genInput = do
               ApplySuccess reference _ -> do
                 destroyResult <- providerDestroy reference
                 destroyResult `shouldBe` DestroySuccess
+
                 checkResult <- providerCheck input reference
                 case checkResult of
-                  CheckSuccess -> expectationFailure "should not have succeeded"
                   CheckFailure _ -> pure ()
+                  CheckSuccess output ->
+                    expectationFailure $
+                      unlines
+                        [ "should not have succeeded, but did and got this output:",
+                          ppShow output
+                        ]
 
       describe "destroy" $ do
         it "can destroy a resource that was just created" $ \i ->
@@ -340,8 +356,8 @@ localProviderSpec Provider {..} genReference genInput = do
               -- Check
               checkResult <- providerCheck input reference
               case checkResult of
+                CheckSuccess _ -> pure ()
                 CheckFailure err -> expectationFailure err
-                CheckSuccess -> pure ()
 
               -- Destroy
               destroyResult <- providerDestroy reference
@@ -367,7 +383,7 @@ localProviderSpec Provider {..} genReference genInput = do
                       checkResult1 <- providerCheck input1 reference1
                       case checkResult1 of
                         CheckFailure err -> expectationFailure err
-                        CheckSuccess -> pure ()
+                        CheckSuccess _ -> pure ()
 
                       -- Change
                       applyResult2 <- providerApply input2 (ExistsLocallyAndRemotely reference1 output1)
@@ -386,7 +402,7 @@ localProviderSpec Provider {..} genReference genInput = do
                                 checkResult2 <- providerCheck input2 reference2
                                 case checkResult2 of
                                   CheckFailure err -> expectationFailure err
-                                  CheckSuccess -> pure ()
+                                  CheckSuccess _ -> pure ()
 
                                 -- Destroy
                                 destroyResult <- providerDestroy reference2

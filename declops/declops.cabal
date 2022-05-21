@@ -18,7 +18,6 @@ extra-source-files:
 data-files:
     nix-bits/get-graph.nix
     nix-bits/get-specification.nix
-    nix-bits/nixpkgs-pin.nix
 
 library
   exposed-modules:

@@ -135,5 +135,5 @@ declopsApply = do
     pure result
 
   if any applyFailed results
-    then liftIO exitFailure
+    then liftIO $ die $ unlines $ map show results
     else pure ()

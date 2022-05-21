@@ -7,8 +7,10 @@ nixosTest (
   { lib, pkgs, ... }: {
     name = "declops-integration-test-${name}";
     machine = {
-      environment.systemPackages = [
-        pkgs.declops
+      environment.systemPackages = with pkgs; [
+        declops
+        nix
+        git
       ];
     };
     testScript = ''
