@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Declops.Command.Apply (declopsApply) where
 
@@ -17,6 +18,7 @@ import Declops.DB
 import Declops.Env
 import Declops.Provider
 import System.Exit
+import Text.Colour
 import UnliftIO
 
 declopsApply :: C ()
@@ -132,8 +134,25 @@ declopsApply = do
               [ResourceReferenceReference =. toJSON reference]
         pure ()
 
-    pure result
+    pure (resourceId, result)
 
-  if any applyFailed results
+  let header = map (underline . fore blue) ["provider", "resource", "result"]
+  putTable $
+    header :
+    map
+      ( \(ResourceId {..}, result) ->
+          [ providerNameChunk resourceIdProvider,
+            resourceNameChunk resourceIdResource,
+            applyResultChunk result
+          ]
+      )
+      results
+
+  if any (applyFailed . snd) results
     then liftIO $ die $ unlines $ map show results
     else pure ()
+
+applyResultChunk :: ApplyResult reference output -> Chunk
+applyResultChunk = \case
+  ApplyFailure _ -> fore red "failed"
+  ApplySuccess _ _ -> fore green "success"
