@@ -85,6 +85,8 @@ data RemoteState output
   | ExistsRemotely !output
   deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
+type JSONApplyContext = ApplyContext JSON.Value JSON.Value
+
 data ApplyContext reference output
   = DoesNotExistLocallyNorRemotely
   | ExistsLocallyButNotRemotely !reference

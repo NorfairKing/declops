@@ -1,7 +1,8 @@
 {
   # Path to the deployment file
-  deployment
-, lib ? (deployment.pkgs or (import (import ./nixpkgs-pin.nix) { })).lib
+  deploymentFile
+
+, lib ? ((import deploymentFile).pkgs or (import (import ./nixpkgs-pin.nix) { })).lib
 }:
 
 
@@ -40,15 +41,14 @@
 # 
 with lib;
 let
+  deployment = import deploymentFile;
   dependencies = mapAttrs
-    (provider_name: resources:
+    (_: resources:
       mapAttrs
-        (resource_name: spec_or_dep:
-          spec_or_dep.dependencies or [ ])
+        (_: specOrDep:
+          specOrDep.dependencies or [ ])
         resources
     )
-    ((import deployment).resources);
+    deployment.resources;
 in
-{
-  inherit dependencies;
-}
+{ inherit dependencies; }
