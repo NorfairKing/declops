@@ -65,14 +65,19 @@ tests:
     - autodocodec
     - autodocodec-yaml
     - declops
+    - declops-provider
     - declops-provider-gen
     - genvalidity-aeson
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-sydtest-persistent
     - genvalidity-text
+    - monad-logger
+    - mtl
     - path
     - path-io
+    - persistent-sqlite
+    - safe-coloured-text
     - sydtest
     - sydtest-persistent-sqlite
     - text

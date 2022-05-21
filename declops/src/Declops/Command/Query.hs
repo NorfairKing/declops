@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Declops.Command.Query (declopsQuery, getApplyContexts) where
+module Declops.Command.Query (declopsQuery, declopsQueryResults, getApplyContexts) where
 
 import Control.Monad.IO.Class
 import Control.Monad.Logger
@@ -19,24 +19,26 @@ import UnliftIO
 
 declopsQuery :: C ()
 declopsQuery = do
-  dependencies <- nixEvalGraph
-  dependenciesWithProviders <- case addProvidersToDependenciesSpecification dependencies of
-    Left err -> liftIO $ die err
-    Right d -> pure d
-
-  trips <- getApplyContexts dependenciesWithProviders
-
+  results <- declopsQueryResults
   let header = map (underline . fore blue) ["provider", "resource", "status"]
   putTable $
     header :
     map
-      ( \(ResourceId {..}, (_, _, applyContext)) ->
+      ( \(ResourceId {..}, applyContext) ->
           [ providerNameChunk resourceIdProvider,
             resourceNameChunk resourceIdResource,
             applyContextChunk applyContext
           ]
       )
-      (M.toList trips)
+      (M.toList results)
+
+declopsQueryResults :: C (Map ResourceId JSONApplyContext)
+declopsQueryResults = do
+  dependencies <- nixEvalGraph
+  dependenciesWithProviders <- case addProvidersToDependenciesSpecification dependencies of
+    Left err -> liftIO $ die err
+    Right d -> pure d
+  M.map (\(_, _, ac) -> ac) <$> getApplyContexts dependenciesWithProviders
 
 applyContextChunk :: ApplyContext reference output -> Chunk
 applyContextChunk = \case

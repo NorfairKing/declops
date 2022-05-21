@@ -20,4 +20,4 @@ instance GenValid ResourceReference
 spec :: Spec
 spec = do
   persistSpec @ResourceReference
-  sqliteMigrationSucceedsSpec "test_resources/migration.sql" localMigration
+  sqliteMigrationSucceedsSpec "test_resources/db/migration.sql" localMigration

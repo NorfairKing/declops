@@ -8,7 +8,8 @@ name:           declops
 version:        0.0.0.0
 build-type:     Simple
 extra-source-files:
-    test_resources/migration.sql
+    test_resources/db/migration.sql
+    test_resources/deployments/simple-success.nix
 data-files:
     nix-bits/get-graph.nix
     nix-bits/get-specification.nix
@@ -75,6 +76,7 @@ test-suite declops-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Declops.Command.QuerySpec
       Declops.DBSpec
       Paths_declops
   hs-source-dirs:
@@ -88,14 +90,19 @@ test-suite declops-test
     , autodocodec-yaml
     , base >=4.7 && <5
     , declops
+    , declops-provider
     , declops-provider-gen
     , genvalidity-aeson
     , genvalidity-path
     , genvalidity-sydtest
     , genvalidity-sydtest-persistent
     , genvalidity-text
+    , monad-logger
+    , mtl
     , path
     , path-io
+    , persistent-sqlite
+    , safe-coloured-text
     , sydtest
     , sydtest-persistent-sqlite
     , text
