@@ -1,7 +1,7 @@
 {
   # Path to the deployment file
   deployment
-, lib ? (import (import ./nixpkgs-pin.nix) { }).lib
+, lib ? (deployment.pkgs or (import (import ./nixpkgs-pin.nix) { })).lib
 }:
 
 
