@@ -14,8 +14,8 @@ import Data.GenValidity.Path ()
 import Data.GenValidity.Text ()
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Declops.DB
 import Declops.Provider
+import Declops.Provider.ProviderName
 import Test.QuickCheck
 import Test.Syd
 import Test.Syd.Validity

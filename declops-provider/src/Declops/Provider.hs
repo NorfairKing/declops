@@ -7,7 +7,7 @@ module Declops.Provider where
 import Data.Aeson as JSON
 import Data.Aeson.Types as JSON
 import Data.Functor.Identity
-import Declops.DB.ProviderName
+import Declops.Provider.ProviderName
 import GHC.Generics (Generic)
 import System.Exit
 

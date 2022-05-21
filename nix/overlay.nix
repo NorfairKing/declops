@@ -49,6 +49,7 @@ with final.haskell.lib;
     in
     {
       "declops" = declopsPkgWithOwnComp "declops";
+      "declops-provider" = declops "declops-provider";
       "declops-provider-test" = declopsPkg "declops-provider-test";
     };
 

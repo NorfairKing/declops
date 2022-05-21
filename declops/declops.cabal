@@ -22,11 +22,8 @@ library
       Declops.Command.Destroy
       Declops.Command.Query
       Declops.DB
-      Declops.DB.ProviderName
-      Declops.DB.ResourceName
       Declops.Env
       Declops.OptParse
-      Declops.Provider
       Declops.Provider.TempDir
       Declops.Provider.TempFile
   other-modules:
@@ -43,6 +40,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , declops-provider
     , envparse
     , monad-logger
     , mtl

@@ -3,24 +3,20 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Declops.DBSpec (spec) where
+module Declops.Provider.ResourceNameSpec (spec) where
 
 import Data.GenValidity.Aeson ()
 import Data.GenValidity.Path ()
 import Data.GenValidity.Text ()
-import Declops.DB
+import Declops.Provider.ResourceName
 import Test.Syd
-import Test.Syd.Persistent.Sqlite
 import Test.Syd.Validity
+import Test.Syd.Validity.Aeson
 import Test.Syd.Validity.Persist
-
-instance GenValid ResourceReference
-
-instance GenValid ProviderName
 
 instance GenValid ResourceName
 
 spec :: Spec
 spec = do
-  persistSpec @ResourceReference
-  sqliteMigrationSucceedsSpec "test_resources/migration.sql" localMigration
+  persistSpec @ResourceName
+  jsonSpec @ResourceName

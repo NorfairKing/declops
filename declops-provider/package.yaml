@@ -1,9 +1,5 @@
-name: declops-provider-test
+name: declops-provider
 version: 0.0.0.0
-
-extra-source-files:
-- test_resources/**/*
-
 
 dependencies:
 - base >= 4.7 && < 5
@@ -12,21 +8,31 @@ library:
   source-dirs: src
   build-tools: autoexporter
   dependencies:
-    - QuickCheck
     - aeson
+    - aeson-pretty
     - autodocodec
     - autodocodec-yaml
-    - declops-provider
-    - genvalidity-path
-    - genvalidity-sydtest
-    - genvalidity-sydtest-aeson
-    - genvalidity-text
+    - bytestring
+    - containers
+    - envparse
+    - monad-logger
+    - mtl
+    - optparse-applicative
     - path
-    - sydtest
+    - path-io
+    - persistent
+    - persistent-sqlite
     - text
+    - typed-process
+    - unliftio
+    - validity
+    - validity-aeson
+    - validity-path
+    - validity-text
+    - yaml
 
 tests:
-  declops-provider-test-test:
+  declops-provider-test:
     main: Spec.hs
     build-tools: sydtest-discover
     source-dirs: test
@@ -35,16 +41,18 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - QuickCheck
     - aeson
     - autodocodec
     - autodocodec-yaml
-    - declops
-    - declops-provider-test
+    - declops-provider
+    - genvalidity-aeson
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-sydtest-aeson
+    - genvalidity-sydtest-persistent
     - genvalidity-text
     - path
+    - path-io
     - sydtest
+    - sydtest-persistent-sqlite
     - text

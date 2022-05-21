@@ -4,67 +4,74 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           declops-provider-test
+name:           declops-provider
 version:        0.0.0.0
 build-type:     Simple
-extra-source-files:
-    test_resources/providers/temporary-directory/schemas/input.txt
-    test_resources/providers/temporary-directory/schemas/output.txt
-    test_resources/providers/temporary-directory/schemas/reference.txt
-    test_resources/providers/temporary-file/schemas/input.txt
-    test_resources/providers/temporary-file/schemas/output.txt
-    test_resources/providers/temporary-file/schemas/reference.txt
 
 library
   exposed-modules:
-      Declops.Provider.Test
+      Declops.Provider
+      Declops.Provider.ProviderName
+      Declops.Provider.ResourceName
   other-modules:
-      Paths_declops_provider_test
+      Paths_declops_provider
   hs-source-dirs:
       src
   build-tool-depends:
       autoexporter:autoexporter
   build-depends:
-      QuickCheck
-    , aeson
+      aeson
+    , aeson-pretty
     , autodocodec
     , autodocodec-yaml
     , base >=4.7 && <5
-    , declops-provider
-    , genvalidity-path
-    , genvalidity-sydtest
-    , genvalidity-sydtest-aeson
-    , genvalidity-text
+    , bytestring
+    , containers
+    , envparse
+    , monad-logger
+    , mtl
+    , optparse-applicative
     , path
-    , sydtest
+    , path-io
+    , persistent
+    , persistent-sqlite
     , text
+    , typed-process
+    , unliftio
+    , validity
+    , validity-aeson
+    , validity-path
+    , validity-text
+    , yaml
   default-language: Haskell2010
 
-test-suite declops-provider-test-test
+test-suite declops-provider-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Declops.Provider.TempDirSpec
-      Declops.Provider.TempFileSpec
-      Paths_declops_provider_test
+      Declops.Provider.ProviderNameSpec
+      Declops.Provider.ResourceNameSpec
+      Paths_declops_provider
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-tool-depends:
       sydtest-discover:sydtest-discover
   build-depends:
-      QuickCheck
-    , aeson
+      aeson
     , autodocodec
     , autodocodec-yaml
     , base >=4.7 && <5
-    , declops
-    , declops-provider-test
+    , declops-provider
+    , genvalidity-aeson
     , genvalidity-path
     , genvalidity-sydtest
     , genvalidity-sydtest-aeson
+    , genvalidity-sydtest-persistent
     , genvalidity-text
     , path
+    , path-io
     , sydtest
+    , sydtest-persistent-sqlite
     , text
   default-language: Haskell2010

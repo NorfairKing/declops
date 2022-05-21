@@ -20,6 +20,7 @@ library:
     - autodocodec-yaml
     - bytestring
     - containers
+    - declops-provider
     - envparse
     - monad-logger
     - mtl

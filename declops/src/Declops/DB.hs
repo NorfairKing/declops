@@ -16,8 +16,8 @@
 
 module Declops.DB
   ( module Declops.DB,
-    module Declops.DB.ResourceName,
-    module Declops.DB.ProviderName,
+    module Declops.Provider.ResourceName,
+    module Declops.Provider.ProviderName,
   )
 where
 
@@ -30,8 +30,8 @@ import Data.Validity
 import Data.Validity.Aeson ()
 import Database.Persist.Sqlite
 import Database.Persist.TH
-import Declops.DB.ProviderName
-import Declops.DB.ResourceName
+import Declops.Provider.ProviderName
+import Declops.Provider.ResourceName
 import GHC.Generics (Generic)
 
 share
@@ -64,7 +64,3 @@ instance PersistFieldSql JSON.Value where
   sqlType Proxy = SqlBlob
 
 instance Validity ResourceReference
-
-instance Validity ProviderName
-
-instance Validity ResourceName
