@@ -17,6 +17,7 @@ import Declops.DB
 import Declops.Env
 import Declops.Provider
 import System.Exit
+import Text.Colour
 import UnliftIO
 
 declopsCheck :: C ()
@@ -109,7 +110,7 @@ declopsCheck = do
       Just ov -> pure ov
     putMVar outputVar result
 
-    -- Log the resutl
+    -- Log the result
     case result of
       CheckFailure err ->
         logErrorN $
@@ -129,11 +130,28 @@ declopsCheck = do
                 T.unpack $ renderResourceId resourceId
               ]
 
-    pure result
+    pure (resourceId, result)
 
-  if any checkFailed results
+  let header = map (underline . fore blue) ["provider", "resource", "result"]
+  putTable $
+    header :
+    map
+      ( \(ResourceId {..}, result) ->
+          [ providerNameChunk resourceIdProvider,
+            resourceNameChunk resourceIdResource,
+            checkResultChunk result
+          ]
+      )
+      results
+
+  if any (checkFailed . snd) results
     then liftIO $ die $ unlines $ map show results
     else pure ()
+
+checkResultChunk :: CheckResult output -> Chunk
+checkResultChunk = \case
+  CheckFailure _ -> fore red "failed"
+  CheckSuccess _ -> fore green "success"
 
 getReferenceMap :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) -> C (Map ResourceId (JSONProvider, [ResourceId], LocalState JSON.Value))
 getReferenceMap dependenciesWithProviders =

@@ -32,7 +32,10 @@ declopsQuery = do
     header :
     map
       ( \(ResourceId {..}, (_, _, applyContext)) ->
-          [providerNameChunk resourceIdProvider, resourceNameChunk resourceIdResource, applyContextChunk applyContext]
+          [ providerNameChunk resourceIdProvider,
+            resourceNameChunk resourceIdResource,
+            applyContextChunk applyContext
+          ]
       )
       (M.toList trips)
 
