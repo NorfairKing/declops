@@ -62,7 +62,13 @@ declopsCheck = do
             CheckFailure _ -> Nothing
 
     result <- case mDependencyOutputs of
-      Nothing ->
+      Nothing -> do
+        logDebugN $
+          T.pack $
+            unwords
+              [ "Not checking because some dependency failed to check:",
+                T.unpack $ renderResourceId resourceId
+              ]
         pure $
           CheckFailure $
             unwords
@@ -73,7 +79,7 @@ declopsCheck = do
         specification <- nixEvalResourceSpecification dependencyOutputs resourceId
         case mReference of
           DoesNotExistLocally -> do
-            logInfoN $
+            logDebugN $
               T.pack $
                 unlines
                   [ unwords
@@ -89,7 +95,7 @@ declopsCheck = do
                     T.unpack $ renderResourceId resourceId
                   ]
           ExistsLocally reference -> do
-            logDebugN $
+            logInfoN $
               T.pack $
                 unwords
                   [ "Checking",
@@ -97,12 +103,32 @@ declopsCheck = do
                   ]
             liftIO $ providerCheck provider specification reference
 
-    outputVar <-
-      case M.lookup resourceId outputVars of
-        Nothing -> liftIO $ die $ unwords ["Somehow no outputvar for resource", T.unpack $ renderResourceId resourceId]
-        Just ov -> pure ov
-
+    -- Make the check result available for dependents to be checked as well
+    outputVar <- case M.lookup resourceId outputVars of
+      Nothing -> liftIO $ die $ unwords ["Somehow no outputvar for resource", T.unpack $ renderResourceId resourceId]
+      Just ov -> pure ov
     putMVar outputVar result
+
+    -- Log the resutl
+    case result of
+      CheckFailure err ->
+        logErrorN $
+          T.pack $
+            unlines
+              [ unwords
+                  [ "Check failed for:",
+                    T.unpack $ renderResourceId resourceId
+                  ],
+                err
+              ]
+      CheckSuccess _ ->
+        logInfoN $
+          T.pack $
+            unwords
+              [ "Check succeeded for:",
+                T.unpack $ renderResourceId resourceId
+              ]
+
     pure result
 
   if any checkFailed results

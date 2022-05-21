@@ -111,6 +111,8 @@ bimapApplyContext referenceFunc outputFunc = \case
   ExistsLocallyButNotRemotely reference -> ExistsLocallyButNotRemotely <$> referenceFunc reference
   ExistsLocallyAndRemotely reference output -> ExistsLocallyAndRemotely <$> referenceFunc reference <*> outputFunc output
 
+type JSONApplyResult = ApplyResult JSON.Value JSON.Value
+
 data ApplyResult reference output
   = ApplySuccess !reference !output
   | ApplyFailure !String
