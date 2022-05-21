@@ -6,6 +6,7 @@ pkgs.haskell.lib.buildStackProject {
   name = "declops-nix-shell";
   buildInputs = with pkgs; [
     (import sources.niv { }).niv
+    git
     haskellPackages.autoexporter
     nix
     zlib

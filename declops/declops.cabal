@@ -17,6 +17,7 @@ extra-source-files:
     test_resources/providers/temporary-file/schemas/reference.txt
 data-files:
     nix-bits/get-graph.nix
+    nix-bits/nixpkgs-pin.nix
 
 library
   exposed-modules:
