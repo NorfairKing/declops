@@ -36,6 +36,7 @@ with final.haskell.lib;
             enableExecutableProfiling = false;
             buildDepends = (old.buildDepends or [ ]) ++ (with final; [
               haskellPackages.autoexporter
+              nix
             ]);
             # Ugly hack because we can't just add flags to the 'test' invocation.
             # Show test output as we go, instead of all at once afterwards.
