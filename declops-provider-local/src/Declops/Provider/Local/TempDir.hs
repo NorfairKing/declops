@@ -72,7 +72,7 @@ tempDirProvider =
             let output = TempDirOutput {tempDirOutputPath = tdir}
             pure $ ApplySuccess tdir output
           ExistsLocallyButNotRemotely reference -> do
-            ignoringAbsence $ removeDir reference
+            ignoringAbsence $ removeDirRecur reference
             tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
             let output = TempDirOutput {tempDirOutputPath = tdir}
             pure $ ApplySuccess tdir output
@@ -83,7 +83,7 @@ tempDirProvider =
             if alreadyCorrect
               then pure $ ApplySuccess reference output
               else do
-                ignoringAbsence $ removeDir reference
+                ignoringAbsence $ removeDirRecur reference
                 tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
                 let newOutput = TempDirOutput {tempDirOutputPath = tdir}
                 pure $ ApplySuccess tdir newOutput,
@@ -105,6 +105,6 @@ tempDirProvider =
                         ]
             else CheckFailure "Directory does not exist.",
       providerDestroy = \reference -> do
-        ignoringAbsence $ removeDir reference
+        ignoringAbsence $ removeDirRecur reference
         pure DestroySuccess
     }

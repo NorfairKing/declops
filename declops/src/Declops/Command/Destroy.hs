@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -12,6 +13,7 @@ import Declops.DB
 import Declops.Env
 import Declops.Provider
 import System.Exit
+import Text.Colour
 import UnliftIO
 
 declopsDestroy :: C ()
@@ -26,7 +28,7 @@ declopsDestroy = do
     forConcurrently (M.toList dependenciesWithProviders) $ \(_, (Provider {..}, resources)) ->
       forConcurrently (M.toList resources) $ \(resourceName, _) -> do
         mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
-        case mLocalResource of
+        result <- case mLocalResource of
           Nothing -> do
             -- There was nothing to destroy, so we don't do anything but still
             -- consider it a success.
@@ -49,7 +51,25 @@ declopsDestroy = do
             destroyResult <- liftIO $ providerDestroy (resourceReferenceReference resourceReference)
             runDB $ delete resourceId
             pure destroyResult
+        pure (ResourceId providerName resourceName, result)
 
-  if any destroyFailed results
+  let header = map (underline . fore blue) ["provider", "resource", "result"]
+  putTable $
+    header :
+    map
+      ( \(ResourceId {..}, result) ->
+          [ providerNameChunk resourceIdProvider,
+            resourceNameChunk resourceIdResource,
+            destroyResultChunk result
+          ]
+      )
+      results
+
+  if any (destroyFailed . snd) results
     then liftIO exitFailure
     else pure ()
+
+destroyResultChunk :: DestroyResult -> Chunk
+destroyResultChunk = \case
+  DestroyFailure _ -> fore red "failed"
+  DestroySuccess -> fore green "success"
