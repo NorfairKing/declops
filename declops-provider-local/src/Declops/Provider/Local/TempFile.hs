@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Declops.Provider.TempFile where
+module Declops.Provider.Local.TempFile where
 
 import Autodocodec
 import Control.Arrow (left)
@@ -18,7 +18,7 @@ import Data.Validity
 import Data.Validity.Path ()
 import Data.Validity.Text ()
 import Declops.Provider
-import Declops.Provider.TempDir ()
+import Declops.Provider.Local.TempDir ()
 import GHC.Generics (Generic)
 import Path
 import Path.IO

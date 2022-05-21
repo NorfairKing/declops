@@ -49,8 +49,9 @@ with final.haskell.lib;
     in
     {
       "declops" = declopsPkgWithOwnComp "declops";
-      "declops-provider" = declops "declops-provider";
+      "declops-provider" = declopsPkg "declops-provider";
       "declops-provider-test" = declopsPkg "declops-provider-test";
+      "declops-provider-local" = declopsPkg "declops-provider-local";
     };
 
   declopsReleasePackages = mapAttrs (_: pkg: justStaticExecutables (doCheck pkg)) final.declopsHaskellPackages;

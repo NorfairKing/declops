@@ -21,6 +21,7 @@ library:
     - bytestring
     - containers
     - declops-provider
+    - declops-provider-local
     - envparse
     - monad-logger
     - mtl
@@ -34,8 +35,6 @@ library:
     - unliftio
     - validity
     - validity-aeson
-    - validity-path
-    - validity-text
     - yaml
 
 executables:
@@ -66,7 +65,6 @@ tests:
     - genvalidity-aeson
     - genvalidity-path
     - genvalidity-sydtest
-    - genvalidity-sydtest-aeson
     - genvalidity-sydtest-persistent
     - genvalidity-text
     - path

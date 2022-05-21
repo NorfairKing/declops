@@ -23,8 +23,8 @@ import Database.Persist.Sqlite
 import Declops.DB
 import Declops.OptParse (Settings (..))
 import Declops.Provider
-import Declops.Provider.TempDir
-import Declops.Provider.TempFile
+import Declops.Provider.Local.TempDir
+import Declops.Provider.Local.TempFile
 import GHC.Generics (Generic)
 import Path
 import Path.IO

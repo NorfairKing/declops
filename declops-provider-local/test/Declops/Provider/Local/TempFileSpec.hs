@@ -2,11 +2,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Declops.Provider.TempDirSpec (spec) where
+module Declops.Provider.Local.TempFileSpec (spec) where
 
 import Data.GenValidity.Path ()
 import Data.GenValidity.Text ()
-import Declops.Provider.TempDir
+import Declops.Provider.Local.TempFile
 import Declops.Provider.Test
 import Path
 import Test.QuickCheck
@@ -14,15 +14,15 @@ import Test.Syd
 import Test.Syd.Path
 import Test.Syd.Validity
 
-instance GenValid TempDirSpecification
+instance GenValid TempFileSpecification
 
-instance GenValid TempDirOutput
+instance GenValid TempFileOutput
 
 spec :: Spec
 spec = do
-  providerJSONSpec tempDirProvider
-  tempDirSpec "declops-temporary-dir-provider-test" $
+  providerJSONSpec tempFileProvider
+  tempDirSpec "declops-temporary-file-provider-test" $
     localProviderSpec
-      tempDirProvider
+      tempFileProvider
       (\tdir -> (</>) tdir <$> genValid)
-      (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])
+      (\tdir -> TempFileSpecification tdir <$> elements ["foo", "bar", "quux"] <*> genValid)

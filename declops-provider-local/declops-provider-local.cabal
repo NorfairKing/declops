@@ -1,0 +1,66 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.7.
+--
+-- see: https://github.com/sol/hpack
+
+name:           declops-provider-local
+version:        0.0.0.0
+build-type:     Simple
+extra-source-files:
+    test_resources/providers/temporary-directory/schemas/input.txt
+    test_resources/providers/temporary-directory/schemas/output.txt
+    test_resources/providers/temporary-directory/schemas/reference.txt
+    test_resources/providers/temporary-file/schemas/input.txt
+    test_resources/providers/temporary-file/schemas/output.txt
+    test_resources/providers/temporary-file/schemas/reference.txt
+
+library
+  exposed-modules:
+      Declops.Provider.Local.TempDir
+      Declops.Provider.Local.TempFile
+  other-modules:
+      Paths_declops_provider_local
+  hs-source-dirs:
+      src
+  build-tool-depends:
+      autoexporter:autoexporter
+  build-depends:
+      aeson
+    , autodocodec
+    , base >=4.7 && <5
+    , declops-provider
+    , path
+    , path-io
+    , text
+    , validity
+    , validity-path
+    , validity-text
+  default-language: Haskell2010
+
+test-suite declops-provider-local-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Declops.Provider.Local.TempDirSpec
+      Declops.Provider.Local.TempFileSpec
+      Paths_declops_provider_local
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-tool-depends:
+      sydtest-discover:sydtest-discover
+  build-depends:
+      QuickCheck
+    , aeson
+    , autodocodec
+    , base >=4.7 && <5
+    , declops-provider-local
+    , declops-provider-test
+    , genvalidity-path
+    , genvalidity-sydtest
+    , genvalidity-text
+    , path-io
+    , sydtest
+    , text
+  default-language: Haskell2010

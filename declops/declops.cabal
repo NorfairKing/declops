@@ -24,8 +24,6 @@ library
       Declops.DB
       Declops.Env
       Declops.OptParse
-      Declops.Provider.TempDir
-      Declops.Provider.TempFile
   other-modules:
       Paths_declops
   hs-source-dirs:
@@ -41,6 +39,7 @@ library
     , bytestring
     , containers
     , declops-provider
+    , declops-provider-local
     , envparse
     , monad-logger
     , mtl
@@ -54,8 +53,6 @@ library
     , unliftio
     , validity
     , validity-aeson
-    , validity-path
-    , validity-text
     , yaml
   default-language: Haskell2010
 
@@ -91,7 +88,6 @@ test-suite declops-test
     , genvalidity-aeson
     , genvalidity-path
     , genvalidity-sydtest
-    , genvalidity-sydtest-aeson
     , genvalidity-sydtest-persistent
     , genvalidity-text
     , path

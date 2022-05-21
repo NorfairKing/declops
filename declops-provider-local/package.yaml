@@ -1,5 +1,8 @@
-name: declops-provider
+name: declops-provider-local
 version: 0.0.0.0
+
+extra-source-files:
+- test_resources/**/*
 
 dependencies:
 - base >= 4.7 && < 5
@@ -10,13 +13,16 @@ library:
   dependencies:
     - aeson
     - autodocodec
-    - persistent-sqlite
+    - declops-provider
+    - path
+    - path-io
     - text
     - validity
+    - validity-path
     - validity-text
 
 tests:
-  declops-provider-test:
+  declops-provider-local-test:
     main: Spec.hs
     build-tools: sydtest-discover
     source-dirs: test
@@ -25,14 +31,14 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - QuickCheck
     - aeson
     - autodocodec
-    - declops-provider
-    - genvalidity-aeson
+    - declops-provider-test
+    - declops-provider-local
     - genvalidity-path
     - genvalidity-sydtest
-    - genvalidity-sydtest-aeson
-    - genvalidity-sydtest-persistent
     - genvalidity-text
+    - path-io
     - sydtest
     - text

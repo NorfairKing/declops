@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Declops.Provider.TempDir where
+module Declops.Provider.Local.TempDir where
 
 import Autodocodec
 import Control.Arrow (left)
