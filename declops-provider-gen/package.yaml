@@ -1,0 +1,35 @@
+name: declops-provider-gen
+version: 0.0.0.0
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+    - declops-provider
+    - genvalidity
+    - genvalidity-text
+
+tests:
+  declops-provider-test:
+    main: Spec.hs
+    build-tools: sydtest-discover
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - aeson
+    - autodocodec
+    - declops-provider
+    - declops-provider-gen
+    - genvalidity-aeson
+    - genvalidity-path
+    - genvalidity-sydtest
+    - genvalidity-sydtest-aeson
+    - genvalidity-sydtest-persistent
+    - genvalidity-text
+    - sydtest
+    - text

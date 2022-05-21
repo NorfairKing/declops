@@ -85,6 +85,7 @@ test-suite declops-test
     , autodocodec-yaml
     , base >=4.7 && <5
     , declops
+    , declops-provider-gen
     , genvalidity-aeson
     , genvalidity-path
     , genvalidity-sydtest
