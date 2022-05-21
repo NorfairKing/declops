@@ -28,7 +28,6 @@ library:
     - path-io
     - persistent
     - persistent-sqlite
-    - persistent-template
     - text
     - typed-process
     - unliftio
@@ -59,7 +58,6 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - QuickCheck
     - aeson
     - autodocodec
     - autodocodec-yaml

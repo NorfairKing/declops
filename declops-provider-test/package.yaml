@@ -14,37 +14,16 @@ library:
   dependencies:
     - QuickCheck
     - aeson
-    - aeson-pretty
     - autodocodec
     - autodocodec-yaml
-    - bytestring
-    - containers
     - declops
-    - envparse
-    - genvalidity-aeson
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-sydtest-aeson
-    - genvalidity-sydtest-persistent
     - genvalidity-text
-    - monad-logger
-    - mtl
-    - optparse-applicative
     - path
-    - path-io
-    - persistent
-    - persistent-sqlite
-    - persistent-template
     - sydtest
-    - sydtest-persistent-sqlite
     - text
-    - typed-process
-    - unliftio
-    - validity
-    - validity-aeson
-    - validity-path
-    - validity-text
-    - yaml
 
 tests:
   declops-provider-test-test:
@@ -62,14 +41,10 @@ tests:
     - autodocodec-yaml
     - declops
     - declops-provider-test
-    - genvalidity-aeson
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-sydtest-aeson
-    - genvalidity-sydtest-persistent
     - genvalidity-text
     - path
-    - path-io
     - sydtest
-    - sydtest-persistent-sqlite
     - text
