@@ -1,10 +1,6 @@
 name: declops-provider-test
 version: 0.0.0.0
 
-extra-source-files:
-- test_resources/**/*
-
-
 dependencies:
 - base >= 4.7 && < 5
 

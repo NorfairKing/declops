@@ -39,6 +39,7 @@ tests:
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-text
+    - path
     - path-io
     - sydtest
     - text

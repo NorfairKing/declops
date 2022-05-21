@@ -60,6 +60,7 @@ test-suite declops-provider-local-test
     , genvalidity-path
     , genvalidity-sydtest
     , genvalidity-text
+    , path
     , path-io
     , sydtest
     , text

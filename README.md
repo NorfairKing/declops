@@ -13,7 +13,8 @@ To see what's already possible, you can dig into the `integration-tests` directo
 
 * Declarative infrastructure, no commands; only results
 * Applicative infrastructure: Infrastructure can depend on previously set up infrastructure
-* Self-healing deployment; Only idempotent operations (because they can be retried)
+* Self-healing deployment; All successful operations must be idempotent (because they can be retried).
+* Success as the exception; Many things can go wrong. Errors must be first-class, explicit, clear, and diagnosable.
 * Built-in infrastructure testing.
 
 Would be nice too:
