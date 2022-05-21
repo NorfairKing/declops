@@ -68,6 +68,12 @@ newtype DependenciesSpecification = DependenciesSpecification
 instance HasCodec DependenciesSpecification where
   codec = dimapCodec DependenciesSpecification unDependenciesSpecification codec
 
+addProvidersToDependenciesSpecification :: DependenciesSpecification -> Either String (Map ProviderName (JSONProvider, Map ResourceName [ResourceId]))
+addProvidersToDependenciesSpecification (DependenciesSpecification m) = fmap M.fromList $
+  forM (M.toList m) $ \(providerName, resources) -> case M.lookup providerName allProviders of
+    Nothing -> Left $ unwords ["Unknown provider:", T.unpack $ unProviderName providerName] -- TODO multiple errors
+    Just provider -> Right (providerName, (provider, resources))
+
 data ResourceId = ResourceId
   { resourceIdProvider :: !ProviderName,
     resourceIdResource :: !ResourceName
