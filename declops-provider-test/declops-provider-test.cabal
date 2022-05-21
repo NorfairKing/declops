@@ -44,7 +44,8 @@ test-suite declops-provider-test-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      DeclopsSpec
+      Declops.Provider.TempDirSpec
+      Declops.Provider.TempFileSpec
       Paths_declops_provider_test
   hs-source-dirs:
       test
