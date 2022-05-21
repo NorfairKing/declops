@@ -21,15 +21,11 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - aeson
-    - autodocodec
     - declops-provider
     - declops-provider-gen
     - genvalidity-aeson
     - genvalidity-path
-    - genvalidity-sydtest
     - genvalidity-sydtest-aeson
     - genvalidity-sydtest-persistent
     - genvalidity-text
     - sydtest
-    - text

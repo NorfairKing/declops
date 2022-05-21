@@ -35,17 +35,13 @@ test-suite declops-provider-test
   build-tool-depends:
       sydtest-discover:sydtest-discover
   build-depends:
-      aeson
-    , autodocodec
-    , base >=4.7 && <5
+      base >=4.7 && <5
     , declops-provider
     , declops-provider-gen
     , genvalidity-aeson
     , genvalidity-path
-    , genvalidity-sydtest
     , genvalidity-sydtest-aeson
     , genvalidity-sydtest-persistent
     , genvalidity-text
     , sydtest
-    , text
   default-language: Haskell2010
