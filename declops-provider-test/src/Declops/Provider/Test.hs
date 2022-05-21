@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module DeclopsSpec (spec) where
+module Declops.Provider.Test where
 
 import Autodocodec
 import Autodocodec.Yaml
@@ -16,38 +16,10 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Declops.DB
 import Declops.Provider
-import Declops.Provider.TempDir
-import Declops.Provider.TempFile
-import Path
 import Test.QuickCheck
 import Test.Syd
-import Test.Syd.Path
 import Test.Syd.Validity
 import Test.Syd.Validity.Aeson
-
-instance GenValid TempFileSpecification
-
-instance GenValid TempFileOutput
-
-instance GenValid TempDirSpecification
-
-instance GenValid TempDirOutput
-
-spec :: Spec
-spec = do
-  providerJSONSpec tempDirProvider
-  tempDirSpec "declops-temporary-dir-provider-test" $
-    localProviderSpec
-      tempDirProvider
-      (\tdir -> (</>) tdir <$> genValid)
-      (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])
-
-  providerJSONSpec tempFileProvider
-  tempDirSpec "declops-temporary-file-provider-test" $
-    localProviderSpec
-      tempFileProvider
-      (\tdir -> (</>) tdir <$> genValid)
-      (\tdir -> TempFileSpecification tdir <$> elements ["foo", "bar", "quux"] <*> genValid)
 
 providerJSONSpec ::
   forall input reference output.

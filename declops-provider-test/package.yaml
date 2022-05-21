@@ -1,0 +1,75 @@
+name: declops-provider-test
+version: 0.0.0.0
+
+extra-source-files:
+- test_resources/**/*
+
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  build-tools: autoexporter
+  dependencies:
+    - QuickCheck
+    - aeson
+    - aeson-pretty
+    - autodocodec
+    - autodocodec-yaml
+    - bytestring
+    - containers
+    - declops
+    - envparse
+    - genvalidity-aeson
+    - genvalidity-path
+    - genvalidity-sydtest
+    - genvalidity-sydtest-aeson
+    - genvalidity-sydtest-persistent
+    - genvalidity-text
+    - monad-logger
+    - mtl
+    - optparse-applicative
+    - path
+    - path-io
+    - persistent
+    - persistent-sqlite
+    - persistent-template
+    - sydtest
+    - sydtest-persistent-sqlite
+    - text
+    - typed-process
+    - unliftio
+    - validity
+    - validity-aeson
+    - validity-path
+    - validity-text
+    - yaml
+
+tests:
+  declops-provider-test-test:
+    main: Spec.hs
+    build-tools: sydtest-discover
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - QuickCheck
+    - aeson
+    - autodocodec
+    - autodocodec-yaml
+    - declops
+    - declops-provider-test
+    - genvalidity-aeson
+    - genvalidity-path
+    - genvalidity-sydtest
+    - genvalidity-sydtest-aeson
+    - genvalidity-sydtest-persistent
+    - genvalidity-text
+    - path
+    - path-io
+    - sydtest
+    - sydtest-persistent-sqlite
+    - text
