@@ -2,6 +2,7 @@
 
 module Declops.Command.QuerySpec (spec) where
 
+import Control.Exception
 import Control.Monad.Logger
 import Control.Monad.Reader
 import qualified Data.Text as T
@@ -26,7 +27,12 @@ testC :: FilePath -> C a -> IO a
 testC deploymentFile func = do
   testResourcesDeploymentDir <- resolveDir' "test_resources/deployments"
   envDeploymentFile <- resolveFile testResourcesDeploymentDir deploymentFile
-  let logFunc _ _ _ _ = pure () -- No logging
+  let logFunc loc source level str = do
+        _ <- evaluate loc
+        _ <- evaluate source
+        _ <- evaluate level
+        _ <- evaluate str
+        pure () -- No logging, but still evaluating the arguments
   flip runLoggingT logFunc $
     withSystemTempDir "declops-command-test" $ \tdir -> do
       dbFile <- resolveFile tdir "db.sqlite3"
