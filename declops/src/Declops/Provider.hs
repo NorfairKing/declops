@@ -40,7 +40,7 @@ toJSONProvider provider =
           providerCheck = \specificationJSON referenceJSON -> do
             reference <- parseJSONOrErr referenceJSON
             specification <- parseJSONOrErr specificationJSON
-            providerCheck provider specification reference,
+            fmap toJSON <$> providerCheck provider specification reference,
           providerDestroy = \referenceJSON -> do
             reference <- parseJSONOrErr referenceJSON
             providerDestroy provider reference
@@ -70,7 +70,7 @@ data Provider specification reference output = Provider
   { providerName :: !ProviderName,
     providerQuery :: !(reference -> IO (RemoteState output)),
     providerApply :: !(specification -> ApplyContext reference output -> IO (ApplyResult reference output)),
-    providerCheck :: !(specification -> reference -> IO CheckResult),
+    providerCheck :: !(specification -> reference -> IO (CheckResult output)),
     providerDestroy :: !(reference -> IO DestroyResult)
   }
   deriving (Generic)
@@ -138,14 +138,14 @@ applyFailed = \case
   ApplySuccess _ _ -> False
   ApplyFailure _ -> True
 
-data CheckResult
-  = CheckSuccess
+data CheckResult output
+  = CheckSuccess !output
   | CheckFailure !String
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
-checkFailed :: CheckResult -> Bool
+checkFailed :: CheckResult output -> Bool
 checkFailed = \case
-  CheckSuccess -> False
+  CheckSuccess _ -> False
   CheckFailure _ -> True
 
 data DestroyResult

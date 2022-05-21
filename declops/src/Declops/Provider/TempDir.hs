@@ -95,7 +95,7 @@ tempDirProvider =
               Nothing -> CheckFailure "Directory had the wrong base."
               Just subdir ->
                 if T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
-                  then CheckSuccess
+                  then CheckSuccess TempDirOutput {tempDirOutputPath = reference}
                   else
                     CheckFailure $
                       unlines

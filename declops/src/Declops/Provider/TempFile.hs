@@ -118,7 +118,12 @@ tempFileProvider =
                   Nothing -> CheckFailure "File does not exist."
                   Just contents ->
                     if contents == tempFileSpecificationContents
-                      then CheckSuccess
+                      then
+                        CheckSuccess
+                          TempFileOutput
+                            { tempFileOutputPath = reference,
+                              tempFileOutputContents = contents
+                            }
                       else
                         CheckFailure $
                           unlines

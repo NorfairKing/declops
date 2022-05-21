@@ -47,7 +47,7 @@ declopsApply = do
     logDebugN $
       T.pack $
         unwords
-          [ "All dependencies satisfied for",
+          [ "All dependencies satisfied to try to apply",
             T.unpack $ renderResourceId resourceId
           ]
 

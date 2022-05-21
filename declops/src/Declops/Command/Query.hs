@@ -32,20 +32,29 @@ getApplyContexts dependenciesWithProviders =
   fmap (M.fromList . concat) $
     forConcurrently (M.toList dependenciesWithProviders) $ \(_, (provider@Provider {..}, resources)) ->
       forConcurrently (M.toList resources) $ \(resourceName, dependencies) -> do
-        logDebugN $
-          T.pack $
-            unwords
-              [ "Querying current state of",
-                concat [T.unpack $ unProviderName providerName, ".", T.unpack $ unResourceName resourceName]
-              ]
+        let resourceId = ResourceId providerName resourceName
         mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
 
         applyContext <- case mLocalResource of
-          Nothing -> pure DoesNotExistLocallyNorRemotely
+          Nothing -> do
+            logDebugN $
+              T.pack $
+                unwords
+                  [ "Not querying current state because we have no local reference of",
+                    T.unpack $ renderResourceId resourceId
+                  ]
+            pure DoesNotExistLocallyNorRemotely
           Just (Entity _ resourceReference) -> do
+            logDebugN $
+              T.pack $
+                unwords
+                  [ "Querying current state of",
+                    T.unpack $ renderResourceId resourceId
+                  ]
+
             let reference = resourceReferenceReference resourceReference
             remoteState <- liftIO $ providerQuery reference
             pure $ case remoteState of
               DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
               ExistsRemotely output -> ExistsLocallyAndRemotely reference output
-        pure (ResourceId providerName resourceName, (provider, dependencies, applyContext))
+        pure (resourceId, (provider, dependencies, applyContext))
