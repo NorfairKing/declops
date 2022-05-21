@@ -4,7 +4,6 @@
 
 module Declops.Command.Query (declopsQuery, getApplyContexts) where
 
-import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Map (Map)

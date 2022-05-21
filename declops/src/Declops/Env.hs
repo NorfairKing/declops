@@ -33,7 +33,6 @@ import System.Exit
 import System.IO (hClose)
 import System.Process.Typed
 import Text.Colour
-import Text.Colour.Capabilities
 import Text.Colour.Capabilities.FromEnv
 import Text.Colour.Layout
 
