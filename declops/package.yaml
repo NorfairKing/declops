@@ -30,6 +30,9 @@ library:
     - path-io
     - persistent
     - persistent-sqlite
+    - safe-coloured-text
+    - safe-coloured-text-layout
+    - safe-coloured-text-terminfo
     - text
     - typed-process
     - unliftio

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -14,6 +15,7 @@ import Declops.DB
 import Declops.Env
 import Declops.Provider
 import System.Exit
+import Text.Colour
 import UnliftIO
 
 declopsQuery :: C ()
@@ -24,8 +26,21 @@ declopsQuery = do
     Right d -> pure d
 
   trips <- getApplyContexts dependenciesWithProviders
-  forM_ (M.toList trips) $ \(resourceId, (_, _, applyContext)) -> do
-    liftIO $ print (resourceId, applyContext) -- TODO nice output
+
+  let header = map (underline . fore blue) ["provider", "resource", "status"]
+  putTable $
+    header :
+    map
+      ( \(ResourceId {..}, (_, _, applyContext)) ->
+          [providerNameChunk resourceIdProvider, resourceNameChunk resourceIdResource, applyContextChunk applyContext]
+      )
+      (M.toList trips)
+
+applyContextChunk :: ApplyContext reference output -> Chunk
+applyContextChunk = \case
+  DoesNotExistLocallyNorRemotely -> fore yellow "does not exist"
+  ExistsLocallyButNotRemotely _ -> fore red "missing"
+  ExistsLocallyAndRemotely _ _ -> fore green "exists"
 
 getApplyContexts :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) -> C (Map ResourceId (JSONProvider, [ResourceId], JSONApplyContext))
 getApplyContexts dependenciesWithProviders =

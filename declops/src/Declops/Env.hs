@@ -32,12 +32,17 @@ import Paths_declops
 import System.Exit
 import System.IO (hClose)
 import System.Process.Typed
+import Text.Colour
+import Text.Colour.Capabilities
+import Text.Colour.Capabilities.FromEnv
+import Text.Colour.Layout
 
 type C a = ReaderT Env (LoggingT IO) a
 
 data Env = Env
   { envDeploymentFile :: !(Path Abs File),
-    envConnectionPool :: !ConnectionPool
+    envConnectionPool :: !ConnectionPool,
+    envTerminalCapabilities :: !TerminalCapabilities
   }
 
 runDB :: SqlPersistT IO a -> C a
@@ -53,6 +58,7 @@ runC Settings {..} func = do
         runSqlPool (runMigration localMigration) pool
         let envDeploymentFile = settingDeploymentFile
         let envConnectionPool = pool
+        envTerminalCapabilities <- liftIO getTerminalCapabilitiesFromEnv
         runReaderT func Env {..}
 
 nixEvalGraph :: C DependenciesSpecification
@@ -135,14 +141,6 @@ nixEvalResourceSpecification outputs ResourceId {..} = do
         T.unpack (unResourceName resourceIdResource)
       ]
 
-nixEval :: C [SomeSpecification]
-nixEval = do
-  file <- asks envDeploymentFile
-  maps <- nixEvalFile file "resources"
-  case mapsToSpecificationPairs maps of
-    Left err -> liftIO $ die err
-    Right specs -> pure specs
-
 nixEvalFile :: FromJSON a => Path Abs File -> String -> C a
 nixEvalFile file attribute =
   nixEvalJSON
@@ -172,22 +170,6 @@ nixEvalJSON args = do
       Left err -> liftIO $ die err
       Right output -> pure output
 
--- TODO list of errors instead of only a single one
-mapsToSpecificationPairs :: Map ProviderName (Map ResourceName JSON.Value) -> Either String [SomeSpecification]
-mapsToSpecificationPairs m =
-  fmap concat $
-    forM (M.toList m) $ \(providerName, resources) ->
-      forM (M.toList resources) $ \(resourceName, resource) -> do
-        case M.lookup providerName allProviders of
-          Nothing ->
-            Left $
-              unwords
-                [ "Unknown provider: ",
-                  T.unpack $ unProviderName providerName
-                ]
-          Just provider ->
-            pure $ SomeSpecification providerName resourceName resource provider
-
 allProviders :: Map ProviderName JSONProvider
 allProviders =
   let p ::
@@ -203,12 +185,25 @@ allProviders =
       p provider = (providerName provider, toJSONProvider provider)
    in M.fromList [p tempDirProvider, p tempFileProvider]
 
-data SomeSpecification
-  = SomeSpecification
-      !ProviderName -- Provider name
-      !ResourceName -- Resource name
-      !JSON.Value
-      !JSONProvider
-
 showJSON :: JSON.Value -> String
 showJSON = T.unpack . TE.decodeUtf8 . LB.toStrict . JSON.encodePretty
+
+putChunks :: [Chunk] -> C ()
+putChunks cs = do
+  terminalCapablities <- asks envTerminalCapabilities
+  liftIO $ putChunksWith terminalCapablities cs
+
+putChunksLn :: [Chunk] -> C ()
+putChunksLn cs = putChunks $ cs ++ ["\n"]
+
+putTable :: [[Chunk]] -> C ()
+putTable = putChunks . layoutAsTable
+
+resourceIdChunk :: ResourceId -> Chunk
+resourceIdChunk = fore yellow . chunk . renderResourceId
+
+providerNameChunk :: ProviderName -> Chunk
+providerNameChunk = fore yellow . chunk . unProviderName
+
+resourceNameChunk :: ResourceName -> Chunk
+resourceNameChunk = fore yellow . chunk . unResourceName
