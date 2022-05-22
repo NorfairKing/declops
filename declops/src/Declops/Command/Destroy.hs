@@ -2,10 +2,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Declops.Command.Destroy (declopsDestroy) where
+module Declops.Command.Destroy (declopsDestroy, declopsDestroyResults) where
 
 import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Database.Persist
@@ -18,13 +19,37 @@ import UnliftIO
 
 declopsDestroy :: C ()
 declopsDestroy = do
-  logDebugN "Parsing specification"
+  results <- declopsDestroyResults
+
+  let header = map (underline . fore blue) ["provider", "resource", "result"]
+  putTable $
+    header :
+    map
+      ( \(ResourceId {..}, result) ->
+          [ providerNameChunk resourceIdProvider,
+            resourceNameChunk resourceIdResource,
+            destroyResultChunk result
+          ]
+      )
+      (M.toList results)
+
+  if any destroyFailed results
+    then liftIO exitFailure
+    else pure ()
+
+destroyResultChunk :: DestroyResult -> Chunk
+destroyResultChunk = \case
+  DestroyFailure _ -> fore red "failed"
+  DestroySuccess -> fore green "success"
+
+declopsDestroyResults :: C (Map ResourceId DestroyResult)
+declopsDestroyResults = do
   dependencies <- nixEvalGraph
   dependenciesWithProviders <- case addProvidersToDependenciesSpecification dependencies of
     Left err -> liftIO $ die err
     Right d -> pure d
 
-  results <- fmap concat $
+  fmap (M.fromList . concat) $
     forConcurrently (M.toList dependenciesWithProviders) $ \(_, (Provider {..}, resources)) ->
       forConcurrently (M.toList resources) $ \(resourceName, _) -> do
         mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
@@ -52,24 +77,3 @@ declopsDestroy = do
             runDB $ delete resourceId
             pure destroyResult
         pure (ResourceId providerName resourceName, result)
-
-  let header = map (underline . fore blue) ["provider", "resource", "result"]
-  putTable $
-    header :
-    map
-      ( \(ResourceId {..}, result) ->
-          [ providerNameChunk resourceIdProvider,
-            resourceNameChunk resourceIdResource,
-            destroyResultChunk result
-          ]
-      )
-      results
-
-  if any (destroyFailed . snd) results
-    then liftIO exitFailure
-    else pure ()
-
-destroyResultChunk :: DestroyResult -> Chunk
-destroyResultChunk = \case
-  DestroyFailure _ -> fore red "failed"
-  DestroySuccess -> fore green "success"

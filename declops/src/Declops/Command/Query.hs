@@ -32,6 +32,12 @@ declopsQuery = do
       )
       (M.toList results)
 
+applyContextChunk :: ApplyContext reference output -> Chunk
+applyContextChunk = \case
+  DoesNotExistLocallyNorRemotely -> fore yellow "does not exist"
+  ExistsLocallyButNotRemotely _ -> fore red "missing"
+  ExistsLocallyAndRemotely _ _ -> fore green "exists"
+
 declopsQueryResults :: C (Map ResourceId JSONApplyContext)
 declopsQueryResults = do
   dependencies <- nixEvalGraph
@@ -39,12 +45,6 @@ declopsQueryResults = do
     Left err -> liftIO $ die err
     Right d -> pure d
   M.map (\(_, _, ac) -> ac) <$> getApplyContexts dependenciesWithProviders
-
-applyContextChunk :: ApplyContext reference output -> Chunk
-applyContextChunk = \case
-  DoesNotExistLocallyNorRemotely -> fore yellow "does not exist"
-  ExistsLocallyButNotRemotely _ -> fore red "missing"
-  ExistsLocallyAndRemotely _ _ -> fore green "exists"
 
 getApplyContexts :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) -> C (Map ResourceId (JSONProvider, [ResourceId], JSONApplyContext))
 getApplyContexts dependenciesWithProviders =

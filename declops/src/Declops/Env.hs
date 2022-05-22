@@ -140,14 +140,6 @@ nixEvalResourceSpecification outputs ResourceId {..} = do
         T.unpack (unResourceName resourceIdResource)
       ]
 
-nixEvalFile :: FromJSON a => Path Abs File -> String -> C a
-nixEvalFile file attribute =
-  nixEvalJSON
-    [ "--file",
-      fromAbsFile file,
-      attribute
-    ]
-
 nixEvalJSON :: FromJSON a => [String] -> C a
 nixEvalJSON args = do
   let allArgs = "eval" : "--json" : args
@@ -192,14 +184,8 @@ putChunks cs = do
   terminalCapablities <- asks envTerminalCapabilities
   liftIO $ putChunksWith terminalCapablities cs
 
-putChunksLn :: [Chunk] -> C ()
-putChunksLn cs = putChunks $ cs ++ ["\n"]
-
 putTable :: [[Chunk]] -> C ()
 putTable = putChunks . layoutAsTable
-
-resourceIdChunk :: ResourceId -> Chunk
-resourceIdChunk = fore yellow . chunk . renderResourceId
 
 providerNameChunk :: ProviderName -> Chunk
 providerNameChunk = fore yellow . chunk . unProviderName

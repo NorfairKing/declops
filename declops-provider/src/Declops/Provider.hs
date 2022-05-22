@@ -140,6 +140,8 @@ applyFailed = \case
   ApplySuccess _ _ -> False
   ApplyFailure _ -> True
 
+type JSONCheckResult = CheckResult JSON.Value
+
 data CheckResult output
   = CheckSuccess !output
   | CheckFailure !String

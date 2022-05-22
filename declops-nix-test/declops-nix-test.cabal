@@ -45,6 +45,9 @@ test-suite declops-nix-test-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Declops.Command.ApplySpec
+      Declops.Command.CheckSpec
+      Declops.Command.DestroySpec
       Declops.Command.QuerySpec
       Paths_declops_nix_test
   hs-source-dirs:

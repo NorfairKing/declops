@@ -12,3 +12,8 @@ spec = do
     testC "simple-success.nix" $ do
       results <- declopsQueryResults
       liftIO $ results `shouldSatisfy` all (== DoesNotExistLocallyNorRemotely)
+  it "Is idempotent before the first application" $
+    testC "simple-success.nix" $ do
+      results1 <- declopsQueryResults
+      results2 <- declopsQueryResults
+      liftIO $ results1 `shouldBe` results2
