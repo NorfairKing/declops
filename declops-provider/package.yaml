@@ -10,6 +10,7 @@ library:
   dependencies:
     - aeson
     - autodocodec
+    - path
     - persistent-sqlite
     - text
     - validity

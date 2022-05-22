@@ -1,0 +1,45 @@
+name: declops-provider-virtualbox
+version: 0.0.0.0
+
+extra-source-files:
+- test_resources/**/*
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  build-tools: autoexporter
+  dependencies:
+    - aeson
+    - autodocodec
+    - declops-provider
+    - path
+    - path-io
+    - text
+    - validity
+    - validity-path
+    - validity-text
+
+tests:
+  declops-provider-local-test:
+    main: Spec.hs
+    build-tools: sydtest-discover
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - QuickCheck
+    - aeson
+    - autodocodec
+    - declops-provider-test
+    - declops-provider-virtualbox
+    - genvalidity-path
+    - genvalidity-sydtest
+    - genvalidity-text
+    - path
+    - path-io
+    - sydtest
+    - text

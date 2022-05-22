@@ -5,6 +5,7 @@ packages:
 - declops-provider-gen
 - declops-provider-local
 - declops-provider-test
+- declops-provider-virtualbox
 
 - declops-nix-test
 

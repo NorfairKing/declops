@@ -24,6 +24,7 @@ library
       aeson
     , autodocodec
     , base >=4.7 && <5
+    , path
     , persistent-sqlite
     , text
     , validity

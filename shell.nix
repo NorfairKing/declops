@@ -9,6 +9,7 @@ pkgs.haskell.lib.buildStackProject {
     git
     haskellPackages.autoexporter
     nix
+    virtualbox
     zlib
   ] ++ pre-commit.tools;
   shellHook = pre-commit.run.shellHook;

@@ -1,15 +1,20 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Declops.Provider where
 
+import Autodocodec
+import Control.Arrow (left)
 import Data.Aeson as JSON
 import Data.Aeson.Types as JSON
 import Data.Functor.Identity
 import Data.Validity
 import Declops.Provider.ProviderName
 import GHC.Generics (Generic)
+import Path
 import System.Exit
 
 type JSONProvider = Provider JSON.Value JSON.Value JSON.Value
@@ -46,6 +51,18 @@ toJSONProvider provider =
             reference <- parseJSONOrErr referenceJSON
             providerDestroy provider reference
         }
+
+instance HasCodec (Path Rel Dir) where
+  codec = bimapCodec (left show . parseRelDir) fromRelDir codec
+
+instance HasCodec (Path Rel File) where
+  codec = bimapCodec (left show . parseRelFile) fromRelFile codec
+
+instance HasCodec (Path Abs Dir) where
+  codec = bimapCodec (left show . parseAbsDir) fromAbsDir codec
+
+instance HasCodec (Path Abs File) where
+  codec = bimapCodec (left show . parseAbsFile) fromAbsFile codec
 
 -- | A provider for a resource.
 --

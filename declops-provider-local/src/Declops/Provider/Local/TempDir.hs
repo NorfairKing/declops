@@ -37,9 +37,6 @@ instance HasCodec TempDirSpecification where
         <$> requiredField "base" "base directory" .= tempDirSpecificationBase
         <*> requiredField "template" "template directory name" .= tempDirSpecificationTemplate
 
-instance HasCodec (Path Abs Dir) where
-  codec = bimapCodec (left show . parseAbsDir) fromAbsDir codec
-
 data TempDirOutput = TempDirOutput
   { tempDirOutputPath :: !(Path Abs Dir)
   }

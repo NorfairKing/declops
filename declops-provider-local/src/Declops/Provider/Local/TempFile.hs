@@ -8,7 +8,6 @@
 module Declops.Provider.Local.TempFile where
 
 import Autodocodec
-import Control.Arrow (left)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.List
 import Data.Text (Text)
@@ -18,7 +17,6 @@ import Data.Validity
 import Data.Validity.Path ()
 import Data.Validity.Text ()
 import Declops.Provider
-import Declops.Provider.Local.TempDir ()
 import GHC.Generics (Generic)
 import Path
 import Path.IO
@@ -57,9 +55,6 @@ instance HasCodec TempFileOutput where
       TempFileOutput
         <$> requiredField "path" "file path" .= tempFileOutputPath
         <*> requiredField "contents" "file contents" .= tempFileOutputContents
-
-instance HasCodec (Path Abs File) where
-  codec = bimapCodec (left show . parseAbsFile) fromAbsFile codec
 
 tempFileProvider :: Provider TempFileSpecification (Path Abs File) TempFileOutput
 tempFileProvider =
