@@ -16,6 +16,7 @@ import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Text as T
+import Data.Validity
 import Declops.DB
 import Declops.Env
 import Declops.Provider
@@ -32,20 +33,34 @@ nixEvalGraph :: C DependenciesSpecification
 nixEvalGraph = do
   deploymentFile <- asks envDeploymentFile
   getGraphFile <- liftIO $ getDataFileName "nix-bits/get-graph.nix"
-  nixEvalJSON
-    [ "--file",
-      getGraphFile,
-      "dependencies",
-      "--arg",
-      "deploymentFile",
-      fromAbsFile deploymentFile
-    ]
+  m <-
+    nixEvalJSON
+      [ "--file",
+        getGraphFile,
+        "dependencies",
+        "--arg",
+        "deploymentFile",
+        fromAbsFile deploymentFile
+      ]
+  case parseDependenciesSpecification m of
+    Left err -> liftIO $ die $ show err
+    Right s -> pure s
+
+parseDependenciesSpecification :: Map ProviderName (Map ResourceName [ResourceId]) -> Either DependenciesSpecificationError DependenciesSpecification
+parseDependenciesSpecification = Right . DependenciesSpecification
+
+data DependenciesSpecificationError = DependenciesSpecificationError
+  deriving (Show, Eq, Generic)
+
+instance Validity DependenciesSpecificationError
 
 newtype DependenciesSpecification = DependenciesSpecification
   { unDependenciesSpecification :: Map ProviderName (Map ResourceName [ResourceId])
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec DependenciesSpecification)
+
+instance Validity DependenciesSpecification
 
 instance HasCodec DependenciesSpecification where
   codec = dimapCodec DependenciesSpecification unDependenciesSpecification codec

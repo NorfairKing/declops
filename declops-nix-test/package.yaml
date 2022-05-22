@@ -50,6 +50,7 @@ tests:
     - declops-provider
     - declops-provider-gen
     - genvalidity-aeson
+    - genvalidity-containers
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-sydtest-persistent

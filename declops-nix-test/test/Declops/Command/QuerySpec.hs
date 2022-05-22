@@ -7,7 +7,10 @@ import Declops.Provider
 import Test.Syd
 
 spec :: Spec
-spec = do
+spec = sequential $ do
+  it "Works in this simple case" $
+    testC "simple-success.nix" declopsQuery
+
   it "Sees that no remote resources exist before the first application" $
     testC "simple-success.nix" $ do
       results <- declopsQueryResults
