@@ -1,32 +1,22 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Declops.Command.QuerySpec (spec) where
+module Declops.Command.TestUtils where
 
 import Control.Exception
 import Control.Monad.Logger
 import Control.Monad.Reader
 import qualified Data.Text as T
 import Database.Persist.Sqlite
-import Declops.Command.Query
 import Declops.DB
 import Declops.Env
-import Declops.Provider
 import Path
 import Path.IO
-import Test.Syd
+import Paths_declops_nix_test
 import Text.Colour
-
-spec :: Spec
-spec = do
-  it "Sees that no remote resources exist before the first application" $
-    testC "simple-success.nix" $ do
-      results <- declopsQueryResults
-      liftIO $ results `shouldSatisfy` all (== DoesNotExistLocallyNorRemotely)
 
 testC :: FilePath -> C a -> IO a
 testC deploymentFile func = do
-  testResourcesDeploymentDir <- resolveDir' "test_resources/deployments"
-  envDeploymentFile <- resolveFile testResourcesDeploymentDir deploymentFile
+  envDeploymentFile <- getDataFileName ("deployments/" <> deploymentFile) >>= resolveFile'
   let logFunc loc source level str = do
         _ <- evaluate loc
         _ <- evaluate source

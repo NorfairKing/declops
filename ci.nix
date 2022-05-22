@@ -10,5 +10,6 @@ in
     name = "shell";
     paths = (import ./shell.nix { inherit sources pkgs pre-commit; }).buildInputs;
   };
+  "nix-test" = pkgs.declopsNixTest;
   "local-integration-tests" = (import ./integration-tests/local { inherit sources pkgs; }).all;
 }

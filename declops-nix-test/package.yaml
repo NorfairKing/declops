@@ -1,0 +1,64 @@
+name: declops-nix-test
+version: 0.0.0.0
+
+data-files:
+- deployments/**/*
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+  - aeson
+  - autodocodec
+  - autodocodec-yaml
+  - declops
+  - declops-provider
+  - declops-provider-gen
+  - genvalidity-aeson
+  - genvalidity-path
+  - genvalidity-sydtest
+  - genvalidity-sydtest-persistent
+  - genvalidity-text
+  - monad-logger
+  - mtl
+  - path
+  - path-io
+  - persistent-sqlite
+  - safe-coloured-text
+  - sydtest
+  - sydtest-persistent-sqlite
+  - text
+
+tests:
+  declops-nix-test-test:
+    main: Spec.hs
+    build-tools: sydtest-discover
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - aeson
+    - autodocodec
+    - autodocodec-yaml
+    - declops
+    - declops-nix-test
+    - declops-provider
+    - declops-provider-gen
+    - genvalidity-aeson
+    - genvalidity-path
+    - genvalidity-sydtest
+    - genvalidity-sydtest-persistent
+    - genvalidity-text
+    - monad-logger
+    - mtl
+    - path
+    - path-io
+    - persistent-sqlite
+    - safe-coloured-text
+    - sydtest
+    - sydtest-persistent-sqlite
+    - text

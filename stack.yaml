@@ -6,6 +6,8 @@ packages:
 - declops-provider-local
 - declops-provider-test
 
+- declops-nix-test
+
 extra-deps:
 - github: NorfairKing/autodocodec
   commit: 38bd4865ff2dd40d342141b7fde9319f835d98c6
