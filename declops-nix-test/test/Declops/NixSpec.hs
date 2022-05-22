@@ -43,19 +43,28 @@ spec = do
         isValid (parseDependenciesSpecification m)
 
   describe "nixEvalGraph" $
-    it "detects the right dependencies in this real-world example" $ do
-      dependenciesSpecification <- testC "simple-success.nix" nixEvalGraph
-      removeProviders dependenciesSpecification
-        `shouldBe` [ ( "temporary-directory",
-                       [ ("my-other-temp-dir", ["temporary-directory.my-temp-dir"]),
-                         ("my-temp-dir", [])
-                       ]
-                     ),
-                     ( "temporary-file",
-                       [ ( "my-other-temp-file",
-                           ["temporary-directory.my-other-temp-dir"]
+    sequential $ do
+      it "detects the right dependencies in this real-world example" $
+        do
+          dependenciesSpecification <- testC "simple-success.nix" nixEvalGraph
+          removeProviders dependenciesSpecification
+            `shouldBe` [ ( "temporary-directory",
+                           [ ("my-other-temp-dir", ["temporary-directory.my-temp-dir"]),
+                             ("my-temp-dir", [])
+                           ]
                          ),
-                         ("my-temp-file", ["temporary-directory.my-temp-dir"])
+                         ( "temporary-file",
+                           [ ( "my-other-temp-file",
+                               ["temporary-directory.my-other-temp-dir"]
+                             ),
+                             ("my-temp-file", ["temporary-directory.my-temp-dir"])
+                           ]
+                         )
                        ]
-                     )
-                   ]
+      it "detects the unknown provider this example" $ do
+        testC "unknown-providers.nix" nixEvalGraph
+          `shouldThrow` (== DependenciesSpecificationUnknownProvider ["other-unknown-provider", "unknown-provider"])
+
+      it "detects the missing resource this example" $ do
+        testC "missing-resources.nix" nixEvalGraph
+          `shouldThrow` (== DependenciesSpecificationMissingResources ["temporary-directory.my-temp-dir", "temporary-directory.my-other-temp-dir"])

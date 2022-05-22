@@ -22,6 +22,7 @@ import Declops.OptParse (Settings (..))
 import Declops.Provider
 import Declops.Provider.Local.TempDir
 import Declops.Provider.Local.TempFile
+import Declops.Provider.ResourceId
 import Path
 import Text.Colour
 import Text.Colour.Capabilities.FromEnv
@@ -82,3 +83,6 @@ providerNameChunk = fore yellow . chunk . unProviderName
 
 resourceNameChunk :: ResourceName -> Chunk
 resourceNameChunk = fore yellow . chunk . unResourceName
+
+resourceIdChunk :: ResourceId -> Chunk
+resourceIdChunk = fore yellow . chunk . renderResourceId

@@ -2,11 +2,13 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Declops.Nix where
 
+import Control.Exception
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
@@ -30,6 +32,7 @@ import Paths_declops
 import System.Exit
 import System.IO (hClose)
 import System.Process.Typed
+import Text.Colour
 
 nixEvalGraph :: C DependenciesSpecification
 nixEvalGraph = do
@@ -45,7 +48,9 @@ nixEvalGraph = do
         fromAbsFile deploymentFile
       ]
   case parseDependenciesSpecification m of
-    Left err -> liftIO $ die $ show err
+    Left err -> do
+      putChunks $ dependenciesSpecificationErrorChunks err
+      liftIO $ throwIO err
     Right s -> pure s
 
 parseDependenciesSpecification ::
@@ -93,6 +98,21 @@ data DependenciesSpecificationError
   deriving (Show, Eq, Generic)
 
 instance Validity DependenciesSpecificationError
+
+instance Exception DependenciesSpecificationError
+
+dependenciesSpecificationErrorChunks :: DependenciesSpecificationError -> [Chunk]
+dependenciesSpecificationErrorChunks = \case
+  DependenciesSpecificationMissingResources resourceIds ->
+    concat
+      [ [fore red "The following resources were specified as dependencies but are not defined:\n"],
+        concatMap (\resourceId -> [resourceIdChunk resourceId, "\n"]) (NE.toList resourceIds)
+      ]
+  DependenciesSpecificationUnknownProvider providerNames ->
+    concat
+      [ [fore red "Resources have been specified of the following providers, but these providers are unknown:\n"],
+        concatMap (\providerName -> [providerNameChunk providerName, "\n"]) (NE.toList providerNames)
+      ]
 
 newtype DependenciesSpecification = DependenciesSpecification
   { unDependenciesSpecification :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId])

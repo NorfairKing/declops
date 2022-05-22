@@ -8,7 +8,9 @@ name:           declops-nix-test
 version:        0.0.0.0
 build-type:     Simple
 data-files:
+    deployments/missing-resources.nix
     deployments/simple-success.nix
+    deployments/unknown-providers.nix
 
 library
   exposed-modules:
