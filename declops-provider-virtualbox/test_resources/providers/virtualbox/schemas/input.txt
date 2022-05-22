@@ -2,3 +2,6 @@
 [37mname[m: # [31mrequired[m
   # name
   [33m<string>[m
+[37mbasefolder[m: # [31mrequired[m
+  # base folder
+  [33m<string>[m

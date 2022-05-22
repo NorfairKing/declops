@@ -29,12 +29,14 @@ library
     , path
     , path-io
     , text
+    , typed-process
+    , uuid
     , validity
     , validity-path
     , validity-text
   default-language: Haskell2010
 
-test-suite declops-provider-local-test
+test-suite declops-provider-virtualbox-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
@@ -55,8 +57,10 @@ test-suite declops-provider-local-test
     , genvalidity-path
     , genvalidity-sydtest
     , genvalidity-text
+    , genvalidity-uuid
     , path
     , path-io
     , sydtest
     , text
+    , uuid
   default-language: Haskell2010

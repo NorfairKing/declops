@@ -17,12 +17,14 @@ library:
     - path
     - path-io
     - text
+    - typed-process
+    - uuid
     - validity
     - validity-path
     - validity-text
 
 tests:
-  declops-provider-local-test:
+  declops-provider-virtualbox-test:
     main: Spec.hs
     build-tools: sydtest-discover
     source-dirs: test
@@ -39,7 +41,9 @@ tests:
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-text
+    - genvalidity-uuid
     - path
     - path-io
     - sydtest
     - text
+    - uuid

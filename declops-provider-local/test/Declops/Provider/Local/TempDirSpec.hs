@@ -21,8 +21,9 @@ instance GenValid TempDirOutput
 spec :: Spec
 spec = do
   providerJSONSpec tempDirProvider
-  tempDirSpec "declops-temporary-dir-provider-test" $
-    localProviderSpec
-      tempDirProvider
-      (\tdir -> (</>) tdir <$> genValid)
-      (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])
+  modifyMaxSuccess (`div` 10) $
+    tempDirSpec "declops-temporary-dir-provider-test" $
+      localProviderSpec
+        tempDirProvider
+        (\tdir -> (</>) tdir <$> genValid)
+        (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -6,6 +7,8 @@ module Declops.Provider.VirtualBoxSpec (spec) where
 
 import Data.GenValidity.Path ()
 import Data.GenValidity.Text ()
+import Data.GenValidity.UUID ()
+import qualified Data.Text as T
 import Declops.Provider.Test
 import Declops.Provider.VirtualBox
 import Path
@@ -21,9 +24,16 @@ instance GenValid VirtualBoxOutput
 spec :: Spec
 spec = do
   providerJSONSpec virtualBoxProvider
+  modifyMaxSuccess (const 1) $
+    modifyMaxSize (const 10) $
+      sequential $
+        tempDirSpec "declops-temporary-virtualbox-provider-test" $
+          localProviderSpec
+            virtualBoxProvider
+            (\_ -> genValid)
+            ( \tdir -> do
+                virtualBoxSpecificationName <- genValid
+                virtualBoxSpecificationBaseFolder <- T.pack . fromAbsDir <$> ((</>) tdir <$> genValid)
 
--- tempDirSpec "declops-temporary-virtualbox-provider-test" $
---   localProviderSpec
---     virtualBoxProvider
---     (\tdir -> (</>) tdir <$> genValid)
---     (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])
+                pure VirtualBoxSpecification {..}
+            )
