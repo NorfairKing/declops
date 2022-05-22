@@ -7,17 +7,16 @@
 
 module Declops.Nix where
 
-import Autodocodec
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
 import Data.Aeson.Encode.Pretty as JSON
 import qualified Data.ByteString.Lazy as LB
+import Data.Either
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe
 import qualified Data.Text as T
 import Data.Validity
 import Declops.DB
@@ -49,18 +48,24 @@ nixEvalGraph = do
     Left err -> liftIO $ die $ show err
     Right s -> pure s
 
-parseDependenciesSpecification :: Map ProviderName (Map ResourceName [ResourceId]) -> Either DependenciesSpecificationError DependenciesSpecification
+parseDependenciesSpecification ::
+  Map ProviderName (Map ResourceName [ResourceId]) ->
+  Either DependenciesSpecificationError DependenciesSpecification
 parseDependenciesSpecification dependenciesMap =
   case NE.nonEmpty (getMissingResources dependenciesMap) of
-    Nothing -> Right (DependenciesSpecification dependenciesMap)
+    Nothing -> case addProvidersToDependenciesSpecification dependenciesMap of
+      Left unknownProviders -> Left $ DependenciesSpecificationUnknownProvider unknownProviders
+      Right dependenciesSpecificationMap -> Right $ DependenciesSpecification dependenciesSpecificationMap
     Just missingResources -> Left $ DependenciesSpecificationMissingResources missingResources
 
-getMissingResources :: Map ProviderName (Map ResourceName [ResourceId]) -> [ResourceId]
+getMissingResources ::
+  Map ProviderName (Map ResourceName [ResourceId]) ->
+  [ResourceId]
 getMissingResources dependenciesMap =
   concatMap
-    ( \(providerName, resources) ->
+    ( \(_, resources) ->
         concatMap
-          ( \(resourceName, dependencies) ->
+          ( \(_, dependencies) ->
               let isMissing ResourceId {..} = case M.lookup resourceIdProvider dependenciesMap of
                     Nothing -> True
                     Just resourcesMap -> not $ M.member resourceIdResource resourcesMap
@@ -70,34 +75,53 @@ getMissingResources dependenciesMap =
     )
     (M.toList dependenciesMap)
 
+addProvidersToDependenciesSpecification ::
+  Map ProviderName a ->
+  Either (NonEmpty ProviderName) (Map ProviderName (JSONProvider, a))
+addProvidersToDependenciesSpecification dependenciesMap =
+  let (unknownProviders, withProviders) = partitionEithers $
+        flip map (M.toList dependenciesMap) $ \(providerName, resources) -> case M.lookup providerName allProviders of
+          Nothing -> Left providerName
+          Just provider -> Right (providerName, (provider, resources))
+   in case NE.nonEmpty unknownProviders of
+        Nothing -> Right $ M.fromList withProviders
+        Just ne -> Left ne
+
 data DependenciesSpecificationError
-  = DependenciesSpecificationMissingResources (NonEmpty ResourceId)
+  = DependenciesSpecificationMissingResources !(NonEmpty ResourceId)
+  | DependenciesSpecificationUnknownProvider !(NonEmpty ProviderName)
   deriving (Show, Eq, Generic)
 
 instance Validity DependenciesSpecificationError
 
 newtype DependenciesSpecification = DependenciesSpecification
-  { unDependenciesSpecification :: Map ProviderName (Map ResourceName [ResourceId])
+  { unDependenciesSpecification :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId])
   }
-  deriving stock (Show, Eq, Generic)
-  deriving (FromJSON, ToJSON) via (Autodocodec DependenciesSpecification)
+  deriving stock (Generic)
 
 instance Validity DependenciesSpecification where
-  validate ds@(DependenciesSpecification m) =
+  validate ds@(DependenciesSpecification dependenciesMap) =
     mconcat
       [ genericValidate ds,
         declare "there are no missing resources in the graph" $
-          null $ getMissingResources m
+          null $
+            concatMap
+              ( \(_, (_, resources)) ->
+                  concatMap
+                    ( \(_, dependencies) ->
+                        let isMissing ResourceId {..} = case M.lookup resourceIdProvider dependenciesMap of
+                              Nothing -> True
+                              Just (_, resourcesMap) -> not $ M.member resourceIdResource resourcesMap
+                         in filter isMissing dependencies
+                    )
+                    (M.toList resources)
+              )
+              (M.toList dependenciesMap)
       ]
 
-instance HasCodec DependenciesSpecification where
-  codec = dimapCodec DependenciesSpecification unDependenciesSpecification codec
-
-addProvidersToDependenciesSpecification :: DependenciesSpecification -> Either String (Map ProviderName (JSONProvider, Map ResourceName [ResourceId]))
-addProvidersToDependenciesSpecification (DependenciesSpecification m) = fmap M.fromList $
-  forM (M.toList m) $ \(providerName, resources) -> case M.lookup providerName allProviders of
-    Nothing -> Left $ unwords ["Unknown provider:", T.unpack $ unProviderName providerName] -- TODO multiple errors
-    Just provider -> Right (providerName, (provider, resources))
+-- For printing
+removeProviders :: DependenciesSpecification -> Map ProviderName (Map ResourceName [ResourceId])
+removeProviders (DependenciesSpecification dependenciesMap) = M.map snd dependenciesMap
 
 nixEvalResourceSpecification :: Map ProviderName (Map ResourceName JSON.Value) -> ResourceId -> C JSON.Value
 nixEvalResourceSpecification outputs ResourceId {..} = do

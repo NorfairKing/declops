@@ -50,12 +50,9 @@ applyResultChunk = \case
 
 declopsApplyResults :: C (Map ResourceId JSONApplyResult)
 declopsApplyResults = do
-  dependencyGraph <- nixEvalGraph
-  dependenciesWithProviders <- case addProvidersToDependenciesSpecification dependencyGraph of
-    Left err -> liftIO $ die err
-    Right d -> pure d
+  DependenciesSpecification dependenciesMap <- nixEvalGraph
 
-  applyContexts <- getApplyContexts dependenciesWithProviders
+  applyContexts <- getApplyContexts dependenciesMap
 
   outputVars <- forM applyContexts $ const newEmptyMVar
 

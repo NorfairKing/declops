@@ -7,6 +7,7 @@ module Declops.Provider where
 import Data.Aeson as JSON
 import Data.Aeson.Types as JSON
 import Data.Functor.Identity
+import Data.Validity
 import Declops.Provider.ProviderName
 import GHC.Generics (Generic)
 import System.Exit
@@ -74,6 +75,9 @@ data Provider specification reference output = Provider
     providerDestroy :: !(reference -> IO DestroyResult)
   }
   deriving (Generic)
+
+instance Validity (Provider specification reference output) where
+  validate = trivialValidation
 
 data LocalState reference
   = DoesNotExistLocally

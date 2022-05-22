@@ -49,12 +49,9 @@ checkResultChunk = \case
 
 declopsCheckResults :: C (Map ResourceId JSONCheckResult)
 declopsCheckResults = do
-  dependencyGraph <- nixEvalGraph
-  dependenciesWithProviders <- case addProvidersToDependenciesSpecification dependencyGraph of
-    Left err -> liftIO $ die err
-    Right d -> pure d
+  DependenciesSpecification dependenciesMap <- nixEvalGraph
 
-  referenceMap <- getReferenceMap dependenciesWithProviders
+  referenceMap <- getReferenceMap dependenciesMap
 
   outputVars <- forM referenceMap $ const newEmptyMVar
 

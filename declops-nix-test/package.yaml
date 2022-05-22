@@ -49,6 +49,7 @@ tests:
     - declops-nix-test
     - declops-provider
     - declops-provider-gen
+    - declops-provider-local
     - genvalidity-aeson
     - genvalidity-containers
     - genvalidity-path

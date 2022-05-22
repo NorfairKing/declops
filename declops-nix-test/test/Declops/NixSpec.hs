@@ -15,37 +15,47 @@ spec = do
   describe "parseDependenciesSpecification" $ do
     it "detects no issues in this example" $
       let graph =
-            [ ("foo", [("bar", ["quux.mu"])]),
-              ("quux", [("mu", [])])
+            [ ("temporary-file", [("foo", ["temporary-directory.bar"])]),
+              ("temporary-directory", [("bar", [])])
             ]
-       in parseDependenciesSpecification graph
-            `shouldBe` Right (DependenciesSpecification graph)
+       in case parseDependenciesSpecification graph of
+            Left err -> expectationFailure $ show err
+            Right actual -> removeProviders actual `shouldBe` graph
 
     it "detects that there is a missing resource in this graph" $ do
       let graph =
-            [ ("foo", [("bar", ["quux.mu"])])
+            [ ("temporary-file", [("foo", ["temporary-file.bar"])])
             ]
       case parseDependenciesSpecification graph of
         Right _ -> expectationFailure "should not have succeeded"
-        Left err -> err `shouldBe` DependenciesSpecificationMissingResources ["quux.mu"]
+        Left err -> err `shouldBe` DependenciesSpecificationMissingResources ["temporary-file.bar"]
+
+    it "detects that there is a missing provider in this graph" $ do
+      let graph =
+            [ ("unknown-provider", [("foo", [])])
+            ]
+      case parseDependenciesSpecification graph of
+        Right _ -> expectationFailure "should not have succeeded"
+        Left err -> err `shouldBe` DependenciesSpecificationUnknownProvider ["unknown-provider"]
 
     it "produces valid dependencies specifications" $
-      producesValid parseDependenciesSpecification
+      forAllValid $ \m ->
+        isValid (parseDependenciesSpecification m)
 
   describe "nixEvalGraph" $
-    it "detects the right dependencies in this real-world example" $
-      testC "simple-success.nix" nixEvalGraph
-        `shouldReturn` DependenciesSpecification
-          [ ( "temporary-directory",
-              [ ("my-other-temp-dir", ["temporary-directory.my-temp-dir"]),
-                ("my-temp-dir", [])
-              ]
-            ),
-            ( "temporary-file",
-              [ ( "my-other-temp-file",
-                  ["temporary-directory.my-other-temp-dir"]
-                ),
-                ("my-temp-file", ["temporary-directory.my-temp-dir"])
-              ]
-            )
-          ]
+    it "detects the right dependencies in this real-world example" $ do
+      dependenciesSpecification <- testC "simple-success.nix" nixEvalGraph
+      removeProviders dependenciesSpecification
+        `shouldBe` [ ( "temporary-directory",
+                       [ ("my-other-temp-dir", ["temporary-directory.my-temp-dir"]),
+                         ("my-temp-dir", [])
+                       ]
+                     ),
+                     ( "temporary-file",
+                       [ ( "my-other-temp-file",
+                           ["temporary-directory.my-other-temp-dir"]
+                         ),
+                         ("my-temp-file", ["temporary-directory.my-temp-dir"])
+                       ]
+                     )
+                   ]

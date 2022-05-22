@@ -15,7 +15,6 @@ import Declops.Env
 import Declops.Nix
 import Declops.Provider
 import Declops.Provider.ResourceId
-import System.Exit
 import Text.Colour
 import UnliftIO
 
@@ -42,13 +41,13 @@ applyContextChunk = \case
 
 declopsQueryResults :: C (Map ResourceId JSONApplyContext)
 declopsQueryResults = do
-  dependencies <- nixEvalGraph
-  dependenciesWithProviders <- case addProvidersToDependenciesSpecification dependencies of
-    Left err -> liftIO $ die err
-    Right d -> pure d
-  M.map (\(_, _, ac) -> ac) <$> getApplyContexts dependenciesWithProviders
+  DependenciesSpecification dependenciesMap <- nixEvalGraph
 
-getApplyContexts :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) -> C (Map ResourceId (JSONProvider, [ResourceId], JSONApplyContext))
+  M.map (\(_, _, ac) -> ac) <$> getApplyContexts dependenciesMap
+
+getApplyContexts ::
+  Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) ->
+  C (Map ResourceId (JSONProvider, [ResourceId], JSONApplyContext))
 getApplyContexts dependenciesWithProviders =
   fmap (M.fromList . concat) $
     forConcurrently (M.toList dependenciesWithProviders) $ \(_, (provider@Provider {..}, resources)) ->

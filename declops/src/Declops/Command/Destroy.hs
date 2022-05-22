@@ -46,13 +46,10 @@ destroyResultChunk = \case
 
 declopsDestroyResults :: C (Map ResourceId DestroyResult)
 declopsDestroyResults = do
-  dependencies <- nixEvalGraph
-  dependenciesWithProviders <- case addProvidersToDependenciesSpecification dependencies of
-    Left err -> liftIO $ die err
-    Right d -> pure d
+  DependenciesSpecification dependenciesMap <- nixEvalGraph
 
   fmap (M.fromList . concat) $
-    forConcurrently (M.toList dependenciesWithProviders) $ \(_, (Provider {..}, resources)) ->
+    forConcurrently (M.toList dependenciesMap) $ \(_, (Provider {..}, resources)) ->
       forConcurrently (M.toList resources) $ \(resourceName, _) -> do
         mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
         result <- case mLocalResource of
