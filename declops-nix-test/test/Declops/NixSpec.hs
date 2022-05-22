@@ -4,8 +4,8 @@ module Declops.NixSpec (spec) where
 
 import qualified Data.Map as M
 import Declops.Command.TestUtils
-import Declops.Env
 import Declops.Nix
+import Declops.Provider.ResourceId
 import Test.Syd
 
 spec :: Spec

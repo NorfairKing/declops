@@ -19,6 +19,7 @@ import qualified Data.Text as T
 import Declops.DB
 import Declops.Env
 import Declops.Provider
+import Declops.Provider.ResourceId
 import GHC.Generics (Generic)
 import Path
 import Path.IO

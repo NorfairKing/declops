@@ -1,13 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Declops.Env where
 
-import Autodocodec
 import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
@@ -15,7 +13,6 @@ import Data.Aeson.Encode.Pretty as JSON
 import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Database.Persist.Sql
@@ -25,7 +22,6 @@ import Declops.OptParse (Settings (..))
 import Declops.Provider
 import Declops.Provider.Local.TempDir
 import Declops.Provider.Local.TempFile
-import GHC.Generics (Generic)
 import Path
 import Text.Colour
 import Text.Colour.Capabilities.FromEnv
@@ -54,29 +50,6 @@ runC Settings {..} func = do
         let envConnectionPool = pool
         envTerminalCapabilities <- liftIO getTerminalCapabilitiesFromEnv
         runReaderT func Env {..}
-
-data ResourceId = ResourceId
-  { resourceIdProvider :: !ProviderName,
-    resourceIdResource :: !ResourceName
-  }
-  deriving stock (Show, Eq, Ord, Generic)
-  deriving (FromJSON, ToJSON) via (Autodocodec ResourceId)
-
-instance HasCodec ResourceId where
-  codec = bimapCodec parseResourceId renderResourceId codec
-
-parseResourceId :: Text -> Either String ResourceId
-parseResourceId t = case T.splitOn "." t of
-  [providerText, resourceText] -> Right $ ResourceId (ProviderName providerText) (ResourceName resourceText)
-  _ -> Left "Unparseable resource id"
-
-renderResourceId :: ResourceId -> Text
-renderResourceId ResourceId {..} =
-  T.intercalate
-    "."
-    [ unProviderName resourceIdProvider,
-      unResourceName resourceIdResource
-    ]
 
 allProviders :: Map ProviderName JSONProvider
 allProviders =

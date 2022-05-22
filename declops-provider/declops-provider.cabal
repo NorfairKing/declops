@@ -12,6 +12,7 @@ library
   exposed-modules:
       Declops.Provider
       Declops.Provider.ProviderName
+      Declops.Provider.ResourceId
       Declops.Provider.ResourceName
   other-modules:
       Paths_declops_provider

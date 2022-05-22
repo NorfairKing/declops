@@ -14,6 +14,7 @@ import Declops.DB
 import Declops.Env
 import Declops.Nix
 import Declops.Provider
+import Declops.Provider.ResourceId
 import System.Exit
 import Text.Colour
 import UnliftIO
