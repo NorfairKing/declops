@@ -44,6 +44,7 @@ tests:
     - aeson
     - autodocodec
     - autodocodec-yaml
+    - containers
     - declops
     - declops-nix-test
     - declops-provider

@@ -49,6 +49,7 @@ test-suite declops-nix-test-test
       Declops.Command.CheckSpec
       Declops.Command.DestroySpec
       Declops.Command.QuerySpec
+      Declops.NixSpec
       Paths_declops_nix_test
   hs-source-dirs:
       test
@@ -60,6 +61,7 @@ test-suite declops-nix-test-test
     , autodocodec
     , autodocodec-yaml
     , base >=4.7 && <5
+    , containers
     , declops
     , declops-nix-test
     , declops-provider
