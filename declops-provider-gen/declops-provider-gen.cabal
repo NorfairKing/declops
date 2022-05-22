@@ -27,6 +27,7 @@ test-suite declops-provider-test
   main-is: Spec.hs
   other-modules:
       Declops.Provider.ProviderNameSpec
+      Declops.Provider.ResourceIdSpec
       Declops.Provider.ResourceNameSpec
       Paths_declops_provider_gen
   hs-source-dirs:
@@ -40,6 +41,7 @@ test-suite declops-provider-test
     , declops-provider-gen
     , genvalidity-aeson
     , genvalidity-path
+    , genvalidity-sydtest
     , genvalidity-sydtest-aeson
     , genvalidity-sydtest-persistent
     , genvalidity-text

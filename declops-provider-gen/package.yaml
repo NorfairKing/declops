@@ -25,6 +25,7 @@ tests:
     - declops-provider-gen
     - genvalidity-aeson
     - genvalidity-path
+    - genvalidity-sydtest
     - genvalidity-sydtest-aeson
     - genvalidity-sydtest-persistent
     - genvalidity-text
