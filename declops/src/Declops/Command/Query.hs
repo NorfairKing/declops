@@ -12,6 +12,7 @@ import qualified Data.Text as T
 import Database.Persist
 import Declops.DB
 import Declops.Env
+import Declops.Nix
 import Declops.Provider
 import System.Exit
 import Text.Colour

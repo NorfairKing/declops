@@ -23,6 +23,7 @@ library
       Declops.Command.Query
       Declops.DB
       Declops.Env
+      Declops.Nix
       Declops.OptParse
   other-modules:
       Paths_declops

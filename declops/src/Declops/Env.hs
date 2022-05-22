@@ -27,11 +27,6 @@ import Declops.Provider.Local.TempDir
 import Declops.Provider.Local.TempFile
 import GHC.Generics (Generic)
 import Path
-import Path.IO
-import Paths_declops
-import System.Exit
-import System.IO (hClose)
-import System.Process.Typed
 import Text.Colour
 import Text.Colour.Capabilities.FromEnv
 import Text.Colour.Layout
@@ -60,34 +55,6 @@ runC Settings {..} func = do
         envTerminalCapabilities <- liftIO getTerminalCapabilitiesFromEnv
         runReaderT func Env {..}
 
-nixEvalGraph :: C DependenciesSpecification
-nixEvalGraph = do
-  deploymentFile <- asks envDeploymentFile
-  getGraphFile <- liftIO $ getDataFileName "nix-bits/get-graph.nix"
-  nixEvalJSON
-    [ "--file",
-      getGraphFile,
-      "dependencies",
-      "--arg",
-      "deploymentFile",
-      fromAbsFile deploymentFile
-    ]
-
-newtype DependenciesSpecification = DependenciesSpecification
-  { unDependenciesSpecification :: Map ProviderName (Map ResourceName [ResourceId])
-  }
-  deriving stock (Show, Eq, Generic)
-  deriving (FromJSON, ToJSON) via (Autodocodec DependenciesSpecification)
-
-instance HasCodec DependenciesSpecification where
-  codec = dimapCodec DependenciesSpecification unDependenciesSpecification codec
-
-addProvidersToDependenciesSpecification :: DependenciesSpecification -> Either String (Map ProviderName (JSONProvider, Map ResourceName [ResourceId]))
-addProvidersToDependenciesSpecification (DependenciesSpecification m) = fmap M.fromList $
-  forM (M.toList m) $ \(providerName, resources) -> case M.lookup providerName allProviders of
-    Nothing -> Left $ unwords ["Unknown provider:", T.unpack $ unProviderName providerName] -- TODO multiple errors
-    Just provider -> Right (providerName, (provider, resources))
-
 data ResourceId = ResourceId
   { resourceIdProvider :: !ProviderName,
     resourceIdResource :: !ResourceName
@@ -110,56 +77,6 @@ renderResourceId ResourceId {..} =
     [ unProviderName resourceIdProvider,
       unResourceName resourceIdResource
     ]
-
-nixEvalResourceSpecification :: Map ProviderName (Map ResourceName JSON.Value) -> ResourceId -> C JSON.Value
-nixEvalResourceSpecification outputs ResourceId {..} = do
-  deploymentFile <- asks envDeploymentFile
-  -- withSystemTempFile "declops-resource-specification-eval" $ \outputsFile outputsFileHandle -> do
-  tmpDir <- resolveDir' "/tmp"
-  (outputsFile, outputsFileHandle) <- openTempFile tmpDir "declops-resource-specification-eval"
-  do
-    liftIO $ do
-      LB.hPut outputsFileHandle $ JSON.encodePretty outputs
-      hClose outputsFileHandle
-    getSpecificationFile <- liftIO $ getDataFileName "nix-bits/get-specification.nix"
-    nixEvalJSON
-      [ "--file",
-        getSpecificationFile,
-        "output",
-        "--arg",
-        "deploymentFile",
-        fromAbsFile deploymentFile,
-        "--arg",
-        "outputsFile",
-        fromAbsFile outputsFile,
-        "--argstr",
-        "providerName",
-        T.unpack (unProviderName resourceIdProvider),
-        "--argstr",
-        "resourceName",
-        T.unpack (unResourceName resourceIdResource)
-      ]
-
-nixEvalJSON :: FromJSON a => [String] -> C a
-nixEvalJSON args = do
-  let allArgs = "eval" : "--json" : args
-
-  logDebugN $
-    T.pack $
-      unwords
-        [ "Running",
-          show $ unwords $ "nix" : allArgs
-        ]
-  (exitCode, bs) <-
-    liftIO $
-      readProcessStdout $
-        proc "nix" allArgs
-
-  case exitCode of
-    ExitFailure _ -> liftIO $ die "nix failed."
-    ExitSuccess -> case JSON.eitherDecode bs of
-      Left err -> liftIO $ die err
-      Right output -> pure output
 
 allProviders :: Map ProviderName JSONProvider
 allProviders =
