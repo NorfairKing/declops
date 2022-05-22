@@ -51,6 +51,7 @@ test-suite declops-nix-test-test
       Declops.Command.CheckSpec
       Declops.Command.DestroySpec
       Declops.Command.QuerySpec
+      Declops.CommandSpec
       Declops.NixSpec
       Paths_declops_nix_test
   hs-source-dirs:
@@ -84,4 +85,5 @@ test-suite declops-nix-test-test
     , sydtest
     , sydtest-persistent-sqlite
     , text
+    , unliftio
   default-language: Haskell2010
