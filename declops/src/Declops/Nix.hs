@@ -13,8 +13,11 @@ import Control.Monad.Reader
 import Data.Aeson as JSON
 import Data.Aeson.Encode.Pretty as JSON
 import qualified Data.ByteString.Lazy as LB
+import Data.List.NonEmpty (NonEmpty (..))
+import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Maybe
 import qualified Data.Text as T
 import Data.Validity
 import Declops.DB
@@ -47,9 +50,28 @@ nixEvalGraph = do
     Right s -> pure s
 
 parseDependenciesSpecification :: Map ProviderName (Map ResourceName [ResourceId]) -> Either DependenciesSpecificationError DependenciesSpecification
-parseDependenciesSpecification = Right . DependenciesSpecification
+parseDependenciesSpecification dependenciesMap =
+  case NE.nonEmpty (getMissingResources dependenciesMap) of
+    Nothing -> Right (DependenciesSpecification dependenciesMap)
+    Just missingResources -> Left $ DependenciesSpecificationMissingResources missingResources
 
-data DependenciesSpecificationError = DependenciesSpecificationError
+getMissingResources :: Map ProviderName (Map ResourceName [ResourceId]) -> [ResourceId]
+getMissingResources dependenciesMap =
+  concatMap
+    ( \(providerName, resources) ->
+        concatMap
+          ( \(resourceName, dependencies) ->
+              let isMissing ResourceId {..} = case M.lookup resourceIdProvider dependenciesMap of
+                    Nothing -> True
+                    Just resourcesMap -> not $ M.member resourceIdResource resourcesMap
+               in filter isMissing dependencies
+          )
+          (M.toList resources)
+    )
+    (M.toList dependenciesMap)
+
+data DependenciesSpecificationError
+  = DependenciesSpecificationMissingResources (NonEmpty ResourceId)
   deriving (Show, Eq, Generic)
 
 instance Validity DependenciesSpecificationError
@@ -60,7 +82,13 @@ newtype DependenciesSpecification = DependenciesSpecification
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec DependenciesSpecification)
 
-instance Validity DependenciesSpecification
+instance Validity DependenciesSpecification where
+  validate ds@(DependenciesSpecification m) =
+    mconcat
+      [ genericValidate ds,
+        declare "there are no missing resources in the graph" $
+          null $ getMissingResources m
+      ]
 
 instance HasCodec DependenciesSpecification where
   codec = dimapCodec DependenciesSpecification unDependenciesSpecification codec

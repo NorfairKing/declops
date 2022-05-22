@@ -21,6 +21,14 @@ spec = do
        in parseDependenciesSpecification graph
             `shouldBe` Right (DependenciesSpecification graph)
 
+    it "detects that there is a missing resource in this graph" $ do
+      let graph =
+            [ ("foo", [("bar", ["quux.mu"])])
+            ]
+      case parseDependenciesSpecification graph of
+        Right _ -> expectationFailure "should not have succeeded"
+        Left err -> err `shouldBe` DependenciesSpecificationMissingResources ["quux.mu"]
+
     it "produces valid dependencies specifications" $
       producesValid parseDependenciesSpecification
 
