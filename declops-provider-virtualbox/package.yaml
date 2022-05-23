@@ -13,6 +13,7 @@ library:
   dependencies:
     - aeson
     - autodocodec
+    - bytestring
     - declops-provider
     - path
     - path-io

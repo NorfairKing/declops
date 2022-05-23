@@ -31,8 +31,8 @@ spec = do
           localProviderSpec
             virtualBoxProvider
             (\_ -> genValid)
-            ( \tdir -> do
-                virtualBoxSpecificationName <- genValid
+            ( \tdir -> (`suchThat` isValid) $ do
+                virtualBoxSpecificationName <- genValid `suchThat` (not . T.null)
                 virtualBoxSpecificationBaseFolder <- T.pack . fromAbsDir <$> ((</>) tdir <$> genValid)
 
                 pure VirtualBoxSpecification {..}

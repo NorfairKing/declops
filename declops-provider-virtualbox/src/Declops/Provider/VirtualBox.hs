@@ -10,9 +10,14 @@ module Declops.Provider.VirtualBox where
 import Autodocodec
 import Control.Arrow (left)
 import Data.Aeson (FromJSON, ToJSON)
+import qualified Data.ByteString.Char8 as SB8
+import qualified Data.ByteString.Lazy as LB
 import Data.List
+import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TE
 import qualified Data.Text.IO as TIO
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
@@ -34,7 +39,12 @@ data VirtualBoxSpecification = VirtualBoxSpecification
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec VirtualBoxSpecification)
 
-instance Validity VirtualBoxSpecification
+instance Validity VirtualBoxSpecification where
+  validate vbs@VirtualBoxSpecification {..} =
+    mconcat
+      [ genericValidate vbs,
+        declare "The name is not empty" $ not $ T.null virtualBoxSpecificationName
+      ]
 
 instance HasCodec VirtualBoxSpecification where
   codec =
@@ -66,12 +76,45 @@ virtualBoxProvider =
   Provider
     { providerName = "virtualbox",
       providerQuery = \reference -> do
-        ec <- runProcess $ proc "VBoxManage" ["showvminfo", UUID.toString reference, "--details", "--machinereadable"]
+        ec <-
+          runProcess $
+            proc
+              "VBoxManage"
+              [ "showvminfo",
+                UUID.toString reference,
+                "--details",
+                "--machinereadable"
+              ]
         -- This isn't entirely right, but it's a start
         pure $ case ec of
           ExitSuccess -> ExistsRemotely VirtualBoxOutput
           ExitFailure _ -> DoesNotExistRemotely,
-      providerApply = \VirtualBoxSpecification {..} applyContext -> undefined,
+      providerApply = \VirtualBoxSpecification {..} applyContext -> do
+        case applyContext of
+          DoesNotExistLocallyNorRemotely -> do
+            (ec, output) <-
+              readProcessStdout $
+                proc
+                  "VBoxManage"
+                  [ "createvm",
+                    "--name",
+                    T.unpack virtualBoxSpecificationName,
+                    "--ostype",
+                    "Linux_64",
+                    "--basefolder",
+                    T.unpack virtualBoxSpecificationBaseFolder
+                  ]
+            case ec of
+              ExitFailure _ -> pure $ ApplyFailure "Failed to create the vm."
+              ExitSuccess -> do
+                let tups = flip mapMaybe (SB8.lines (LB.toStrict output)) $ \t ->
+                      case T.splitOn ": " $ TE.decodeUtf8With TE.lenientDecode t of
+                        [name, val] -> Just (name, val)
+                        _ -> Nothing
+                case lookup "UUID" tups >>= UUID.fromText of
+                  Nothing -> pure $ ApplyFailure "Expected to have found a uuid."
+                  Just uuid ->
+                    pure $ ApplySuccess uuid VirtualBoxOutput,
       providerCheck = \VirtualBoxSpecification {..} reference -> undefined,
       providerDestroy = \reference -> undefined
     }
