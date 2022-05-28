@@ -5,7 +5,12 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Declops.Provider.Local.TempDir where
+module Declops.Provider.Local.TempDir
+  ( TempDirSpecification (..),
+    TempDirOutput (..),
+    tempDirProvider,
+  )
+where
 
 import Autodocodec
 import Control.Arrow (left)
@@ -55,53 +60,65 @@ tempDirProvider :: Provider TempDirSpecification (Path Abs Dir) TempDirOutput
 tempDirProvider =
   Provider
     { providerName = "temporary-directory",
-      providerQuery = \reference -> do
-        exists <- doesDirExist reference
-        let output = TempDirOutput {tempDirOutputPath = reference}
-        pure $
-          if exists
-            then ExistsRemotely output
-            else DoesNotExistRemotely,
-      providerApply = \TempDirSpecification {..} applyContext -> do
-        case applyContext of
-          DoesNotExistLocallyNorRemotely -> do
-            tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
-            let output = TempDirOutput {tempDirOutputPath = tdir}
-            pure $ ApplySuccess tdir output
-          ExistsLocallyButNotRemotely reference -> do
-            ignoringAbsence $ removeDirRecur reference
-            tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
-            let output = TempDirOutput {tempDirOutputPath = tdir}
-            pure $ ApplySuccess tdir output
-          ExistsLocallyAndRemotely reference output@TempDirOutput {..} -> do
-            let alreadyCorrect = case stripProperPrefix tempDirSpecificationBase tempDirOutputPath of
-                  Nothing -> False
-                  Just subdir -> T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
-            if alreadyCorrect
-              then pure $ ApplySuccess reference output
-              else do
-                ignoringAbsence $ removeDirRecur reference
-                tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
-                let newOutput = TempDirOutput {tempDirOutputPath = tdir}
-                pure $ ApplySuccess tdir newOutput,
-      providerCheck = \TempDirSpecification {..} reference -> do
-        exists <- doesDirExist reference
-        pure $
-          if exists
-            then case stripProperPrefix tempDirSpecificationBase reference of
-              Nothing -> CheckFailure "Directory had the wrong base."
-              Just subdir ->
-                if T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
-                  then CheckSuccess TempDirOutput {tempDirOutputPath = reference}
-                  else
-                    CheckFailure $
-                      unlines
-                        [ "Directory did not have the right template:",
-                          unwords ["expected:  ", T.unpack tempDirSpecificationTemplate],
-                          unwords ["actual dir:", fromAbsDir reference]
-                        ]
-            else CheckFailure "Directory does not exist.",
-      providerDestroy = \reference -> do
-        ignoringAbsence $ removeDirRecur reference
-        pure DestroySuccess
+      providerQuery = queryTempDir,
+      providerApply = applyTempDir,
+      providerCheck = checkTempDir,
+      providerDestroy = destroyTempDir
     }
+
+queryTempDir :: Path Abs Dir -> IO (RemoteState TempDirOutput)
+queryTempDir path = do
+  exists <- doesDirExist path
+  let output = TempDirOutput {tempDirOutputPath = path}
+  pure $
+    if exists
+      then ExistsRemotely output
+      else DoesNotExistRemotely
+
+applyTempDir :: TempDirSpecification -> ApplyContext (Path Abs Dir) TempDirOutput -> IO (ApplyResult (Path Abs Dir) TempDirOutput)
+applyTempDir TempDirSpecification {..} applyContext = do
+  case applyContext of
+    DoesNotExistLocallyNorRemotely -> do
+      tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
+      let output = TempDirOutput {tempDirOutputPath = tdir}
+      pure $ ApplySuccess tdir output
+    ExistsLocallyButNotRemotely path -> do
+      ignoringAbsence $ removeDirRecur path
+      tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
+      let output = TempDirOutput {tempDirOutputPath = tdir}
+      pure $ ApplySuccess tdir output
+    ExistsLocallyAndRemotely path output@TempDirOutput {..} -> do
+      let alreadyCorrect = case stripProperPrefix tempDirSpecificationBase tempDirOutputPath of
+            Nothing -> False
+            Just subdir -> T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
+      if alreadyCorrect
+        then pure $ ApplySuccess path output
+        else do
+          ignoringAbsence $ removeDirRecur path
+          tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
+          let newOutput = TempDirOutput {tempDirOutputPath = tdir}
+          pure $ ApplySuccess tdir newOutput
+
+checkTempDir :: TempDirSpecification -> Path Abs Dir -> IO (CheckResult TempDirOutput)
+checkTempDir TempDirSpecification {..} path = do
+  exists <- doesDirExist path
+  pure $
+    if exists
+      then case stripProperPrefix tempDirSpecificationBase path of
+        Nothing -> CheckFailure "Directory had the wrong base."
+        Just subdir ->
+          if T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
+            then CheckSuccess TempDirOutput {tempDirOutputPath = path}
+            else
+              CheckFailure $
+                unlines
+                  [ "Directory did not have the right template:",
+                    unwords ["expected:  ", T.unpack tempDirSpecificationTemplate],
+                    unwords ["actual dir:", fromAbsDir path]
+                  ]
+      else CheckFailure "Directory does not exist."
+
+destroyTempDir :: Path Abs Dir -> IO DestroyResult
+destroyTempDir path = do
+  ignoringAbsence $ removeDirRecur path
+  pure DestroySuccess
