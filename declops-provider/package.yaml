@@ -14,5 +14,6 @@ library:
     - path
     - persistent-sqlite
     - text
+    - unliftio
     - validity
     - validity-text

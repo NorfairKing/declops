@@ -4,26 +4,31 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Declops.Provider
   ( module Declops.Provider,
     liftIO,
+    module Control.Monad.Logger,
   )
 where
 
 import Autodocodec
 import Control.Arrow (left)
+import Control.Exception (AsyncException)
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson as JSON
 import Data.Aeson.Types as JSON
 import Data.Functor.Identity
+import Data.String
 import Data.Validity
 import Declops.Provider.ProviderName
 import GHC.Generics (Generic)
 import Path
 import System.Exit
+import UnliftIO
 
 type JSONProvider = Provider JSON.Value JSON.Value JSON.Value
 
@@ -114,7 +119,8 @@ runProviderApply ::
   ApplyContext reference output ->
   LoggingT IO (ApplyResult reference output)
 runProviderApply provider specification applyContext =
-  unP $ providerApply provider specification applyContext
+  runPCatchingExceptions (ApplyFailure . ApplyException . displayException) $
+    providerApply provider specification applyContext
 
 runProviderCheck ::
   Provider specification reference output ->
@@ -122,17 +128,33 @@ runProviderCheck ::
   reference ->
   LoggingT IO (CheckResult output)
 runProviderCheck provider specification reference =
-  unP $ providerCheck provider specification reference
+  runPCatchingExceptions (CheckFailure . displayException) $
+    providerCheck provider specification reference
 
 runProviderDestroy ::
   Provider specification reference output ->
   reference ->
   LoggingT IO DestroyResult
 runProviderDestroy provider reference =
-  unP $ providerDestroy provider reference
+  runPCatchingExceptions (DestroyFailure . displayException) $
+    providerDestroy provider reference
 
 newtype P a = P {unP :: LoggingT IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadLogger, MonadLoggerIO)
+
+throwP :: Exception e => e -> P a
+throwP = P . liftIO . throwIO
+
+runPCatchingExceptions :: (forall e. Exception e => e -> a) -> P a -> LoggingT IO a
+runPCatchingExceptions wrapper func = unP func `catches` exceptionHandlers wrapper
+
+exceptionHandlers :: MonadIO m => (forall e. Exception e => e -> a) -> [Handler m a]
+exceptionHandlers wrapper =
+  [ -- Re-throw AsyncException, otherwise execution will not terminate on SIGINT (ctrl-c).
+    Handler (\e -> throwIO (e :: AsyncException)),
+    -- Catch all the rest
+    Handler (\e -> return $ wrapper (e :: SomeException))
+  ]
 
 instance Validity (Provider specification reference output) where
   validate = trivialValidation
@@ -177,8 +199,14 @@ type JSONApplyResult = ApplyResult JSON.Value JSON.Value
 
 data ApplyResult reference output
   = ApplySuccess !reference !output
-  | ApplyFailure !String
+  | ApplyFailure !ApplyException
   deriving (Show, Eq, Generic)
+
+newtype ApplyException = ApplyException {unApplyException :: String}
+  deriving stock (Generic)
+  deriving newtype (Show, Read, Eq, IsString)
+
+instance Exception ApplyException
 
 dimapApplyResult ::
   (reference1 -> reference2) ->

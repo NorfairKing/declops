@@ -35,6 +35,7 @@ library
     , validity
     , validity-path
     , validity-text
+    , validity-uuid
   default-language: Haskell2010
 
 test-suite declops-provider-virtualbox-test

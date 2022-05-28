@@ -23,6 +23,7 @@ library:
     - validity
     - validity-path
     - validity-text
+    - validity-uuid
 
 tests:
   declops-provider-virtualbox-test:

@@ -9,6 +9,7 @@ module Declops.Provider.VirtualBox where
 
 import Autodocodec
 import Control.Arrow (left)
+import Control.Exception
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString.Char8 as SB8
 import qualified Data.ByteString.Lazy as LB
@@ -24,6 +25,7 @@ import qualified Data.UUID as UUID
 import Data.Validity
 import Data.Validity.Path ()
 import Data.Validity.Text ()
+import Data.Validity.UUID ()
 import Declops.Provider
 import GHC.Generics (Generic)
 import Path
@@ -54,6 +56,9 @@ instance HasCodec VirtualBoxSpecification where
         <*> requiredField "base-folder" "base folder" .= virtualBoxSpecificationBaseFolder
 
 data VirtualBoxOutput = VirtualBoxOutput
+  { virtualBoxOutputUUID :: !UUID,
+    virtualBoxOutputSettingsFile :: !Text -- Because of the json roundtrip
+  }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec VirtualBoxOutput)
 
@@ -62,7 +67,9 @@ instance Validity VirtualBoxOutput
 instance HasCodec VirtualBoxOutput where
   codec =
     object "VirtualBoxOutput" $
-      pure VirtualBoxOutput
+      VirtualBoxOutput
+        <$> requiredField "uuid" "vm uuid" .= virtualBoxOutputUUID
+        <*> requiredField "settings-file" "path to the settings file" .= virtualBoxOutputSettingsFile
 
 instance HasCodec UUID where
   codec = bimapCodec (maybe (Left "not a valid uuid") Right . UUID.fromText) UUID.toText codec
@@ -83,8 +90,8 @@ virtualBoxProvider =
 
 queryVirtualBox :: UUID -> P (RemoteState VirtualBoxOutput)
 queryVirtualBox uuid = liftIO $ do
-  ec <-
-    runProcess $
+  (ec, output) <-
+    readProcessStdout $
       proc
         "VBoxManage"
         [ "showvminfo",
@@ -92,44 +99,69 @@ queryVirtualBox uuid = liftIO $ do
           "--details",
           "--machinereadable"
         ]
-  -- This isn't entirely right, but it's a start
-  pure $ case ec of
-    ExitSuccess -> ExistsRemotely VirtualBoxOutput
-    ExitFailure _ -> DoesNotExistRemotely
+
+  case ec of
+    ExitSuccess -> do
+      let tups = map (T.breakOn "=") (T.lines (TE.decodeUtf8 (LB.toStrict output)))
+      virtualBoxOutputUUID <- case lookup "UUID" tups of
+        Nothing -> die "uuid not found." -- TODO
+        Just uuidText -> case UUID.fromText uuidText of
+          Nothing -> die "uuid not readable"
+          Just uuid -> pure uuid
+      virtualBoxOutputSettingsFile <- case lookup "CfgFile" tups of
+        Nothing -> die "settings file not found."
+        Just stf -> pure stf
+      pure $ ExistsRemotely VirtualBoxOutput {..}
+    ExitFailure _ -> pure DoesNotExistRemotely
 
 applyVirtualBox ::
   VirtualBoxSpecification ->
   ApplyContext UUID VirtualBoxOutput ->
   P (ApplyResult UUID VirtualBoxOutput)
-applyVirtualBox VirtualBoxSpecification {..} applyContext = liftIO $
+applyVirtualBox VirtualBoxSpecification {..} applyContext =
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
-      (ec, output) <-
-        readProcessStdout $
-          proc
-            "VBoxManage"
-            [ "createvm",
-              "--name",
-              T.unpack virtualBoxSpecificationName,
-              "--ostype",
-              "Linux_64",
-              "--basefolder",
-              T.unpack virtualBoxSpecificationBaseFolder
-            ]
-      case ec of
-        ExitFailure _ -> pure $ ApplyFailure "Failed to create the vm."
-        ExitSuccess -> do
-          let tups = flip mapMaybe (SB8.lines (LB.toStrict output)) $ \t ->
-                case T.splitOn ": " $ TE.decodeUtf8With TE.lenientDecode t of
-                  [name, val] -> Just (name, val)
-                  _ -> Nothing
-          case lookup "UUID" tups >>= UUID.fromText of
-            Nothing -> pure $ ApplyFailure "Expected to have found a uuid."
-            Just uuid ->
-              pure $ ApplySuccess uuid VirtualBoxOutput
+      logDebugN "Creating a brand new VM."
+      (uuid, settingsFile) <- makeVirtualBox virtualBoxSpecificationName virtualBoxSpecificationBaseFolder Nothing
+      let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = T.pack $ fromAbsFile settingsFile}
+      pure $ ApplySuccess uuid output
+    ExistsLocallyButNotRemotely uuid -> do
+      logDebugN $ T.pack $ unwords ["VM with this UUID vanished, creating a new one with the same uuid:", UUID.toString uuid]
+      (uuid, settingsFile) <- makeVirtualBox virtualBoxSpecificationName virtualBoxSpecificationBaseFolder (Just uuid)
+      let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = T.pack $ fromAbsFile settingsFile}
+      pure $ ApplySuccess uuid output
 
 checkVirtualBox :: VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxOutput)
 checkVirtualBox VirtualBoxSpecification {..} uuid = undefined
 
 destroyVirtualBox :: UUID -> P DestroyResult
 destroyVirtualBox uuid = undefined
+
+makeVirtualBox :: Text -> Text -> Maybe UUID -> P (UUID, Path Abs File)
+makeVirtualBox name baseFolder mUuid = do
+  (ec, output) <-
+    readProcessStdout $
+      proc
+        "VBoxManage"
+        [ "createvm",
+          "--name",
+          T.unpack name,
+          "--ostype",
+          "Linux_64",
+          "--basefolder",
+          T.unpack baseFolder
+        ]
+  case ec of
+    ExitFailure c -> throwP $ ApplyException $ unwords ["createvm failed with exit code:", show c]
+    ExitSuccess -> do
+      let tups = flip mapMaybe (SB8.lines (LB.toStrict output)) $ \t ->
+            case T.splitOn ": " $ TE.decodeUtf8With TE.lenientDecode t of
+              [name, val] -> Just (name, val)
+              _ -> Nothing
+      case lookup "UUID" tups >>= UUID.fromText of
+        Nothing -> throwP $ ApplyException "Expected to have found a uuid."
+        Just uuid -> case lookup "SettingsFile" tups of
+          Nothing -> throwP $ ApplyException "Expected to have found a settings file."
+          Just settingsFileString -> do
+            settingsFile <- resolveFile' $ T.unpack settingsFileString
+            pure (uuid, settingsFile)

@@ -86,10 +86,11 @@ declopsApplyResults = do
             logWarnN "Not applying because some dependency failed to apply."
             pure $
               ApplyFailure $
-                unwords
-                  [ "Could not apply because a dependency failed to apply:",
-                    T.unpack $ renderResourceId resourceId
-                  ]
+                ApplyException $
+                  unwords
+                    [ "Could not apply because a dependency failed to apply:",
+                      T.unpack $ renderResourceId resourceId
+                    ]
           Just dependencyOutputs -> do
             specification <- nixEvalResourceSpecification dependencyOutputs resourceId
 
@@ -118,7 +119,7 @@ declopsApplyResults = do
               T.pack $
                 unlines
                   [ "Failed to apply:",
-                    err
+                    unApplyException err
                   ]
           ApplySuccess reference output -> do
             logInfoN $
