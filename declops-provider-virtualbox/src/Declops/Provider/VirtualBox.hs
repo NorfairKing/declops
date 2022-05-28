@@ -75,46 +75,61 @@ virtualBoxProvider ::
 virtualBoxProvider =
   Provider
     { providerName = "virtualbox",
-      providerQuery = \reference -> do
-        ec <-
-          runProcess $
-            proc
-              "VBoxManage"
-              [ "showvminfo",
-                UUID.toString reference,
-                "--details",
-                "--machinereadable"
-              ]
-        -- This isn't entirely right, but it's a start
-        pure $ case ec of
-          ExitSuccess -> ExistsRemotely VirtualBoxOutput
-          ExitFailure _ -> DoesNotExistRemotely,
-      providerApply = \VirtualBoxSpecification {..} applyContext -> do
-        case applyContext of
-          DoesNotExistLocallyNorRemotely -> do
-            (ec, output) <-
-              readProcessStdout $
-                proc
-                  "VBoxManage"
-                  [ "createvm",
-                    "--name",
-                    T.unpack virtualBoxSpecificationName,
-                    "--ostype",
-                    "Linux_64",
-                    "--basefolder",
-                    T.unpack virtualBoxSpecificationBaseFolder
-                  ]
-            case ec of
-              ExitFailure _ -> pure $ ApplyFailure "Failed to create the vm."
-              ExitSuccess -> do
-                let tups = flip mapMaybe (SB8.lines (LB.toStrict output)) $ \t ->
-                      case T.splitOn ": " $ TE.decodeUtf8With TE.lenientDecode t of
-                        [name, val] -> Just (name, val)
-                        _ -> Nothing
-                case lookup "UUID" tups >>= UUID.fromText of
-                  Nothing -> pure $ ApplyFailure "Expected to have found a uuid."
-                  Just uuid ->
-                    pure $ ApplySuccess uuid VirtualBoxOutput,
-      providerCheck = \VirtualBoxSpecification {..} reference -> undefined,
-      providerDestroy = \reference -> undefined
+      providerQuery = queryVirtualBox,
+      providerApply = applyVirtualBox,
+      providerCheck = checkVirtualBox,
+      providerDestroy = destroyVirtualBox
     }
+
+queryVirtualBox :: UUID -> IO (RemoteState VirtualBoxOutput)
+queryVirtualBox uuid = do
+  ec <-
+    runProcess $
+      proc
+        "VBoxManage"
+        [ "showvminfo",
+          UUID.toString uuid,
+          "--details",
+          "--machinereadable"
+        ]
+  -- This isn't entirely right, but it's a start
+  pure $ case ec of
+    ExitSuccess -> ExistsRemotely VirtualBoxOutput
+    ExitFailure _ -> DoesNotExistRemotely
+
+applyVirtualBox ::
+  VirtualBoxSpecification ->
+  ApplyContext UUID VirtualBoxOutput ->
+  IO (ApplyResult UUID VirtualBoxOutput)
+applyVirtualBox VirtualBoxSpecification {..} applyContext =
+  case applyContext of
+    DoesNotExistLocallyNorRemotely -> do
+      (ec, output) <-
+        readProcessStdout $
+          proc
+            "VBoxManage"
+            [ "createvm",
+              "--name",
+              T.unpack virtualBoxSpecificationName,
+              "--ostype",
+              "Linux_64",
+              "--basefolder",
+              T.unpack virtualBoxSpecificationBaseFolder
+            ]
+      case ec of
+        ExitFailure _ -> pure $ ApplyFailure "Failed to create the vm."
+        ExitSuccess -> do
+          let tups = flip mapMaybe (SB8.lines (LB.toStrict output)) $ \t ->
+                case T.splitOn ": " $ TE.decodeUtf8With TE.lenientDecode t of
+                  [name, val] -> Just (name, val)
+                  _ -> Nothing
+          case lookup "UUID" tups >>= UUID.fromText of
+            Nothing -> pure $ ApplyFailure "Expected to have found a uuid."
+            Just uuid ->
+              pure $ ApplySuccess uuid VirtualBoxOutput
+
+checkVirtualBox :: VirtualBoxSpecification -> UUID -> IO (CheckResult VirtualBoxOutput)
+checkVirtualBox = undefined
+
+destroyVirtualBox :: UUID -> IO DestroyResult
+destroyVirtualBox = undefined
