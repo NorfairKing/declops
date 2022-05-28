@@ -10,6 +10,7 @@ library:
   dependencies:
     - aeson
     - autodocodec
+    - monad-logger
     - path
     - persistent-sqlite
     - text

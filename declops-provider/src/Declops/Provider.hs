@@ -1,13 +1,21 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Declops.Provider where
+module Declops.Provider
+  ( module Declops.Provider,
+    liftIO,
+  )
+where
 
 import Autodocodec
 import Control.Arrow (left)
+import Control.Monad.IO.Class
+import Control.Monad.Logger
 import Data.Aeson as JSON
 import Data.Aeson.Types as JSON
 import Data.Functor.Identity
@@ -29,9 +37,9 @@ toJSONProvider ::
   Provider specification reference output ->
   JSONProvider
 toJSONProvider provider =
-  let parseJSONOrErr :: FromJSON a => JSON.Value -> IO a
+  let parseJSONOrErr :: FromJSON a => JSON.Value -> P a
       parseJSONOrErr value = case JSON.parseEither parseJSON value of
-        Left err -> die err
+        Left err -> liftIO $ die err
         Right result -> pure result
    in Provider
         { providerName = providerName provider,
@@ -86,12 +94,15 @@ instance HasCodec (Path Abs File) where
 -- Getting them all right is not an easy thing to do, which is why we provide a test suite.
 data Provider specification reference output = Provider
   { providerName :: !ProviderName,
-    providerQuery :: !(reference -> IO (RemoteState output)),
-    providerApply :: !(specification -> ApplyContext reference output -> IO (ApplyResult reference output)),
-    providerCheck :: !(specification -> reference -> IO (CheckResult output)),
-    providerDestroy :: !(reference -> IO DestroyResult)
+    providerQuery :: !(reference -> P (RemoteState output)),
+    providerApply :: !(specification -> ApplyContext reference output -> P (ApplyResult reference output)),
+    providerCheck :: !(specification -> reference -> P (CheckResult output)),
+    providerDestroy :: !(reference -> P DestroyResult)
   }
   deriving (Generic)
+
+newtype P a = P {unP :: LoggingT IO a}
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadLogger, MonadLoggerIO)
 
 instance Validity (Provider specification reference output) where
   validate = trivialValidation

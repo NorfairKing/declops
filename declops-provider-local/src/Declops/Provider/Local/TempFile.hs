@@ -5,12 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Declops.Provider.Local.TempFile
-  ( TempFileSpecification (..),
-    TempFileOutput (..),
-    tempFileProvider,
-  )
-where
+module Declops.Provider.Local.TempFile where
 
 import Autodocodec
 import Data.Aeson (FromJSON, ToJSON)
