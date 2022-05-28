@@ -10,6 +10,7 @@ import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
 import Data.Aeson.Encode.Pretty as JSON
+import qualified Data.ByteString.Char8 as SB8
 import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -26,6 +27,7 @@ import Declops.Provider.Local.TempFile
 import Declops.Provider.ResourceId
 import Declops.Provider.VirtualBox
 import Path
+import System.IO (stderr)
 import Text.Colour
 import Text.Colour.Capabilities.FromEnv
 import Text.Colour.Layout
@@ -45,13 +47,13 @@ runDB func = do
 
 runC :: Settings -> C () -> IO ()
 runC Settings {..} func = do
-  runStderrLoggingT $
+  envTerminalCapabilities <- liftIO getTerminalCapabilitiesFromEnv
+  runColouredStderrLoggingT envTerminalCapabilities $
     filterLogger (\_ ll -> ll >= settingLogLevel) $
       withSqlitePool (T.pack (fromAbsFile settingStateFile)) 1 $ \pool -> do
         runSqlPool (runMigration localMigration) pool
         let envDeploymentFile = settingDeploymentFile
         let envConnectionPool = pool
-        envTerminalCapabilities <- liftIO getTerminalCapabilitiesFromEnv
         runReaderT func Env {..}
 
 allProviders :: Map ProviderName JSONProvider
@@ -106,3 +108,22 @@ modLogSource func (LoggingT mFunc) = LoggingT $ \logFunc ->
         let source' = func source
          in logFunc loc source' level str
    in mFunc newLogFunc
+
+runColouredStderrLoggingT :: TerminalCapabilities -> LoggingT m a -> m a
+runColouredStderrLoggingT caps (LoggingT func) = func logFunc
+  where
+    logFunc loc source level str = do
+      let addColour = case level of
+            LevelDebug -> id
+            LevelInfo -> fore white
+            LevelWarn -> fore yellow
+            LevelError -> fore red
+      let levelChunk = addColour $ case level of
+            LevelDebug -> "DEBUG"
+            LevelInfo -> "INFO"
+            LevelWarn -> "WARNING"
+            LevelError -> "ERROR"
+          sourceChunk = addColour $ chunk source
+          logStrChunk = addColour $ chunk $ TE.decodeUtf8 $ fromLogStr str
+      let chunks = [levelChunk, " ", sourceChunk, " ", logStrChunk, "\n"]
+      hPutChunksWith caps stderr chunks

@@ -123,11 +123,13 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext =
     DoesNotExistLocallyNorRemotely -> do
       logDebugN "Creating a brand new VM."
       (uuid, settingsFile) <- makeVirtualBox virtualBoxSpecificationName virtualBoxSpecificationBaseFolder Nothing
+      registerVirtualBox settingsFile
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = T.pack $ fromAbsFile settingsFile}
       pure $ ApplySuccess uuid output
     ExistsLocallyButNotRemotely uuid -> do
       logDebugN $ T.pack $ unwords ["VM with this UUID vanished, creating a new one with the same uuid:", UUID.toString uuid]
       (uuid, settingsFile) <- makeVirtualBox virtualBoxSpecificationName virtualBoxSpecificationBaseFolder (Just uuid)
+      registerVirtualBox settingsFile
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = T.pack $ fromAbsFile settingsFile}
       pure $ ApplySuccess uuid output
 
@@ -165,3 +167,10 @@ makeVirtualBox name baseFolder mUuid = do
           Just settingsFileString -> do
             settingsFile <- resolveFile' $ T.unpack settingsFileString
             pure (uuid, settingsFile)
+
+registerVirtualBox :: Path Abs File -> P ()
+registerVirtualBox settingsFile = do
+  ec <- runProcess $ proc "VBoxManage" ["registervm", fromAbsFile settingsFile]
+  case ec of
+    ExitFailure c -> throwP $ ApplyException $ unwords ["registervm failed with exit code:", show c]
+    ExitSuccess -> pure ()
