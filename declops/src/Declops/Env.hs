@@ -23,6 +23,7 @@ import Declops.Provider
 import Declops.Provider.Local.TempDir
 import Declops.Provider.Local.TempFile
 import Declops.Provider.ResourceId
+import Declops.Provider.VirtualBox
 import Path
 import Text.Colour
 import Text.Colour.Capabilities.FromEnv
@@ -65,7 +66,11 @@ allProviders =
         (ProviderName, JSONProvider)
 
       p provider = (providerName provider, toJSONProvider provider)
-   in M.fromList [p tempDirProvider, p tempFileProvider]
+   in M.fromList
+        [ p tempDirProvider,
+          p tempFileProvider,
+          p virtualBoxProvider
+        ]
 
 showJSON :: JSON.Value -> String
 showJSON = T.unpack . TE.decodeUtf8 . LB.toStrict . JSON.encodePretty

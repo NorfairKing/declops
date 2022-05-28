@@ -41,6 +41,7 @@ library
     , containers
     , declops-provider
     , declops-provider-local
+    , declops-provider-virtualbox
     , envparse
     , monad-logger
     , mtl

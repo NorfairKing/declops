@@ -51,7 +51,7 @@ instance HasCodec VirtualBoxSpecification where
     object "VirtualBoxSpecification" $
       VirtualBoxSpecification
         <$> requiredField "name" "name" .= virtualBoxSpecificationName
-        <*> requiredField "basefolder" "base folder" .= virtualBoxSpecificationBaseFolder
+        <*> requiredField "base-folder" "base folder" .= virtualBoxSpecificationBaseFolder
 
 data VirtualBoxOutput = VirtualBoxOutput
   deriving stock (Show, Eq, Generic)
@@ -129,7 +129,7 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext =
               pure $ ApplySuccess uuid VirtualBoxOutput
 
 checkVirtualBox :: VirtualBoxSpecification -> UUID -> IO (CheckResult VirtualBoxOutput)
-checkVirtualBox = undefined
+checkVirtualBox VirtualBoxSpecification {..} uuid = undefined
 
 destroyVirtualBox :: UUID -> IO DestroyResult
-destroyVirtualBox = undefined
+destroyVirtualBox uuid = undefined
