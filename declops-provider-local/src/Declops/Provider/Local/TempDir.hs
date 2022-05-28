@@ -66,8 +66,8 @@ tempDirProvider =
       providerDestroy = destroyTempDir
     }
 
-queryTempDir :: Path Abs Dir -> IO (RemoteState TempDirOutput)
-queryTempDir path = do
+queryTempDir :: Path Abs Dir -> P (RemoteState TempDirOutput)
+queryTempDir path = liftIO $ do
   exists <- doesDirExist path
   let output = TempDirOutput {tempDirOutputPath = path}
   pure $
@@ -75,16 +75,16 @@ queryTempDir path = do
       then ExistsRemotely output
       else DoesNotExistRemotely
 
-applyTempDir :: TempDirSpecification -> ApplyContext (Path Abs Dir) TempDirOutput -> IO (ApplyResult (Path Abs Dir) TempDirOutput)
-applyTempDir TempDirSpecification {..} applyContext = do
+applyTempDir :: TempDirSpecification -> ApplyContext (Path Abs Dir) TempDirOutput -> P (ApplyResult (Path Abs Dir) TempDirOutput)
+applyTempDir TempDirSpecification {..} applyContext = liftIO $ do
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
-      tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
+      tdir <- makeTempDir tempDirSpecificationBase tempDirSpecificationTemplate
       let output = TempDirOutput {tempDirOutputPath = tdir}
       pure $ ApplySuccess tdir output
     ExistsLocallyButNotRemotely path -> do
       ignoringAbsence $ removeDirRecur path
-      tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
+      tdir <- makeTempDir tempDirSpecificationBase tempDirSpecificationTemplate
       let output = TempDirOutput {tempDirOutputPath = tdir}
       pure $ ApplySuccess tdir output
     ExistsLocallyAndRemotely path output@TempDirOutput {..} -> do
@@ -95,12 +95,12 @@ applyTempDir TempDirSpecification {..} applyContext = do
         then pure $ ApplySuccess path output
         else do
           ignoringAbsence $ removeDirRecur path
-          tdir <- createTempDir tempDirSpecificationBase (T.unpack tempDirSpecificationTemplate)
+          tdir <- makeTempDir tempDirSpecificationBase tempDirSpecificationTemplate
           let newOutput = TempDirOutput {tempDirOutputPath = tdir}
           pure $ ApplySuccess tdir newOutput
 
-checkTempDir :: TempDirSpecification -> Path Abs Dir -> IO (CheckResult TempDirOutput)
-checkTempDir TempDirSpecification {..} path = do
+checkTempDir :: TempDirSpecification -> Path Abs Dir -> P (CheckResult TempDirOutput)
+checkTempDir TempDirSpecification {..} path = liftIO $ do
   exists <- doesDirExist path
   pure $
     if exists
@@ -118,7 +118,13 @@ checkTempDir TempDirSpecification {..} path = do
                   ]
       else CheckFailure "Directory does not exist."
 
-destroyTempDir :: Path Abs Dir -> IO DestroyResult
-destroyTempDir path = do
-  ignoringAbsence $ removeDirRecur path
+destroyTempDir :: Path Abs Dir -> P DestroyResult
+destroyTempDir path = liftIO $ do
+  removeTempDir path
   pure DestroySuccess
+
+removeTempDir :: Path Abs Dir -> IO ()
+removeTempDir path = ignoringAbsence $ removeDirRecur path
+
+makeTempDir :: Path Abs Dir -> Text -> IO (Path Abs Dir)
+makeTempDir base template = createTempDir base (T.unpack template)

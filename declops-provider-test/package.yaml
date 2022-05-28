@@ -17,5 +17,6 @@ library:
     - genvalidity-sydtest
     - genvalidity-sydtest-aeson
     - genvalidity-text
+    - monad-logger
     - sydtest
     - text

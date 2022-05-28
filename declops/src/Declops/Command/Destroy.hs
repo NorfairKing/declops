@@ -6,6 +6,7 @@ module Declops.Command.Destroy (declopsDestroy, declopsDestroyResults) where
 
 import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Monad.Trans
 import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -49,7 +50,7 @@ declopsDestroyResults = do
   DependenciesSpecification dependenciesMap <- nixEvalGraph
 
   fmap (M.fromList . concat) $
-    forConcurrently (M.toList dependenciesMap) $ \(_, (Provider {..}, resources)) ->
+    forConcurrently (M.toList dependenciesMap) $ \(_, (provider@Provider {..}, resources)) ->
       forConcurrently (M.toList resources) $ \(resourceName, _) -> do
         mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
         result <- case mLocalResource of
@@ -72,7 +73,7 @@ declopsDestroyResults = do
                   [ "Destroying",
                     concat [T.unpack $ unProviderName providerName, ".", T.unpack $ unResourceName resourceName]
                   ]
-            destroyResult <- liftIO $ providerDestroy (resourceReferenceReference resourceReference)
+            destroyResult <- lift $ runProviderDestroy provider (resourceReferenceReference resourceReference)
             runDB $ delete resourceId
             pure destroyResult
         pure (ResourceId providerName resourceName, result)

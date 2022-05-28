@@ -66,8 +66,8 @@ tempFileProvider =
       providerDestroy = destroyTempFile
     }
 
-queryTempFile :: Path Abs File -> IO (RemoteState TempFileOutput)
-queryTempFile path = do
+queryTempFile :: Path Abs File -> P (RemoteState TempFileOutput)
+queryTempFile path = liftIO $ do
   mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile path
   pure $ case mContents of
     Nothing -> DoesNotExistRemotely
@@ -78,8 +78,8 @@ queryTempFile path = do
             tempFileOutputContents = contents
           }
 
-applyTempFile :: TempFileSpecification -> ApplyContext (Path Abs File) TempFileOutput -> IO (ApplyResult (Path Abs File) TempFileOutput)
-applyTempFile TempFileSpecification {..} applyContext = do
+applyTempFile :: TempFileSpecification -> ApplyContext (Path Abs File) TempFileOutput -> P (ApplyResult (Path Abs File) TempFileOutput)
+applyTempFile TempFileSpecification {..} applyContext = liftIO $ do
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
       tfile <- makeTempFile tempFileSpecificationBase tempFileSpecificationTemplate tempFileSpecificationContents
@@ -106,8 +106,8 @@ applyTempFile TempFileSpecification {..} applyContext = do
           let newOutput = TempFileOutput {tempFileOutputPath = tfile, tempFileOutputContents = tempFileSpecificationContents}
           pure $ ApplySuccess tfile newOutput
 
-checkTempFile :: TempFileSpecification -> Path Abs File -> IO (CheckResult TempFileOutput)
-checkTempFile TempFileSpecification {..} path = do
+checkTempFile :: TempFileSpecification -> Path Abs File -> P (CheckResult TempFileOutput)
+checkTempFile TempFileSpecification {..} path = liftIO $ do
   case stripProperPrefix tempFileSpecificationBase path of
     Nothing -> pure $ CheckFailure "File had the wrong base."
     Just subfile ->
@@ -140,8 +140,8 @@ checkTempFile TempFileSpecification {..} path = do
                   unwords ["actual file:", fromAbsFile path]
                 ]
 
-destroyTempFile :: Path Abs File -> IO DestroyResult
-destroyTempFile path = do
+destroyTempFile :: Path Abs File -> P DestroyResult
+destroyTempFile path = liftIO $ do
   removeTempFile path
   pure DestroySuccess
 

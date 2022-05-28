@@ -7,6 +7,7 @@ module Declops.Command.Check (declopsCheck, declopsCheckResults) where
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Monad.Trans
 import Data.Aeson as JSON
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -126,7 +127,7 @@ declopsCheckResults = do
                     [ "Checking",
                       T.unpack $ renderResourceId resourceId
                     ]
-              liftIO $ providerCheck provider specification reference
+              lift $ runProviderCheck provider specification reference
 
       -- Make the check result available for dependents to be checked as well
       outputVar <- case M.lookup resourceId outputVars of

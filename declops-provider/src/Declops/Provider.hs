@@ -101,6 +101,36 @@ data Provider specification reference output = Provider
   }
   deriving (Generic)
 
+runProviderQuery ::
+  Provider specification reference output ->
+  reference ->
+  LoggingT IO (RemoteState output)
+runProviderQuery provider reference =
+  unP $ providerQuery provider reference
+
+runProviderApply ::
+  Provider specification reference output ->
+  specification ->
+  ApplyContext reference output ->
+  LoggingT IO (ApplyResult reference output)
+runProviderApply provider specification applyContext =
+  unP $ providerApply provider specification applyContext
+
+runProviderCheck ::
+  Provider specification reference output ->
+  specification ->
+  reference ->
+  LoggingT IO (CheckResult output)
+runProviderCheck provider specification reference =
+  unP $ providerCheck provider specification reference
+
+runProviderDestroy ::
+  Provider specification reference output ->
+  reference ->
+  LoggingT IO DestroyResult
+runProviderDestroy provider reference =
+  unP $ providerDestroy provider reference
+
 newtype P a = P {unP :: LoggingT IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadLogger, MonadLoggerIO)
 

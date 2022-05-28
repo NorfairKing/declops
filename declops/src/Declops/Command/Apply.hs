@@ -5,8 +5,8 @@
 module Declops.Command.Apply (declopsApply, declopsApplyResults) where
 
 import Control.Monad
-import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Monad.Trans
 import Data.Aeson as JSON
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -114,7 +114,7 @@ declopsApplyResults = do
                   showJSON specification
                 ]
 
-          liftIO $ providerApply provider specification applyContext
+          lift $ runProviderApply provider specification applyContext
 
       -- Make the apply result available for dependents to be applied as well.
       outputVar <- case M.lookup resourceId outputVars of

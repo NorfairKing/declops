@@ -81,8 +81,8 @@ virtualBoxProvider =
       providerDestroy = destroyVirtualBox
     }
 
-queryVirtualBox :: UUID -> IO (RemoteState VirtualBoxOutput)
-queryVirtualBox uuid = do
+queryVirtualBox :: UUID -> P (RemoteState VirtualBoxOutput)
+queryVirtualBox uuid = liftIO $ do
   ec <-
     runProcess $
       proc
@@ -100,8 +100,8 @@ queryVirtualBox uuid = do
 applyVirtualBox ::
   VirtualBoxSpecification ->
   ApplyContext UUID VirtualBoxOutput ->
-  IO (ApplyResult UUID VirtualBoxOutput)
-applyVirtualBox VirtualBoxSpecification {..} applyContext =
+  P (ApplyResult UUID VirtualBoxOutput)
+applyVirtualBox VirtualBoxSpecification {..} applyContext = liftIO $
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
       (ec, output) <-
@@ -128,8 +128,8 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext =
             Just uuid ->
               pure $ ApplySuccess uuid VirtualBoxOutput
 
-checkVirtualBox :: VirtualBoxSpecification -> UUID -> IO (CheckResult VirtualBoxOutput)
+checkVirtualBox :: VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxOutput)
 checkVirtualBox VirtualBoxSpecification {..} uuid = undefined
 
-destroyVirtualBox :: UUID -> IO DestroyResult
+destroyVirtualBox :: UUID -> P DestroyResult
 destroyVirtualBox uuid = undefined

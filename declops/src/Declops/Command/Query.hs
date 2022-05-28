@@ -4,8 +4,8 @@
 
 module Declops.Command.Query (declopsQuery, declopsQueryResults, getApplyContexts) where
 
-import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Monad.Trans
 import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -73,7 +73,7 @@ getApplyContexts dependenciesWithProviders =
                   ]
 
             let reference = resourceReferenceReference resourceReference
-            remoteState <- liftIO $ providerQuery reference
+            remoteState <- lift $ runProviderQuery provider reference
             pure $ case remoteState of
               DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
               ExistsRemotely output -> ExistsLocallyAndRemotely reference output
