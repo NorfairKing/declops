@@ -51,30 +51,22 @@ getApplyContexts ::
 getApplyContexts dependenciesWithProviders =
   fmap (M.fromList . concat) $
     forConcurrently (M.toList dependenciesWithProviders) $ \(_, (provider@Provider {..}, resources)) ->
-      forConcurrently (M.toList resources) $ \(resourceName, dependencies) -> do
+      forConcurrently (M.toList resources) $ \(resourceName, dependencies) ->
         let resourceId = ResourceId providerName resourceName
-        mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
+         in withResourceIdSource resourceId $ do
+              mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
 
-        applyContext <- case mLocalResource of
-          Nothing -> do
-            logDebugN $
-              T.pack $
-                unwords
-                  [ "Not querying current state because we have no local reference of",
-                    T.unpack $ renderResourceId resourceId
-                  ]
-            pure DoesNotExistLocallyNorRemotely
-          Just (Entity _ resourceReference) -> do
-            logDebugN $
-              T.pack $
-                unwords
-                  [ "Querying current state of",
-                    T.unpack $ renderResourceId resourceId
-                  ]
-
-            let reference = resourceReferenceReference resourceReference
-            remoteState <- lift $ runProviderQuery provider reference
-            pure $ case remoteState of
-              DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
-              ExistsRemotely output -> ExistsLocallyAndRemotely reference output
-        pure (resourceId, (provider, dependencies, applyContext))
+              applyContext <- case mLocalResource of
+                Nothing -> do
+                  logInfoN "Not querying the current state because we have no local reference."
+                  pure DoesNotExistLocallyNorRemotely
+                Just (Entity _ resourceReference) -> do
+                  logInfoN "Querying the current state."
+                  let reference = resourceReferenceReference resourceReference
+                  logDebugN "Query: Starting"
+                  remoteState <- lift $ runProviderQuery provider reference
+                  logDebugN "Query: Done"
+                  pure $ case remoteState of
+                    DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
+                    ExistsRemotely output -> ExistsLocallyAndRemotely reference output
+              pure (resourceId, (provider, dependencies, applyContext))

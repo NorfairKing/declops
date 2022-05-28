@@ -51,29 +51,27 @@ declopsDestroyResults = do
 
   fmap (M.fromList . concat) $
     forConcurrently (M.toList dependenciesMap) $ \(_, (provider@Provider {..}, resources)) ->
-      forConcurrently (M.toList resources) $ \(resourceName, _) -> do
-        mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
-        result <- case mLocalResource of
-          Nothing -> do
-            -- There was nothing to destroy, so we don't do anything but still
-            -- consider it a success.
-            -- If we were to fail here, the destroy command could not be
-            -- idempotent.
-            logDebugN $
-              T.pack $
-                unwords
-                  [ "Not destroying because it doesn't exist locally:",
-                    concat [T.unpack $ unProviderName providerName, ".", T.unpack $ unResourceName resourceName]
-                  ]
-            pure DestroySuccess
-          Just (Entity resourceId resourceReference) -> do
-            logInfoN $
-              T.pack $
-                unwords
-                  [ "Destroying",
-                    concat [T.unpack $ unProviderName providerName, ".", T.unpack $ unResourceName resourceName]
-                  ]
-            destroyResult <- lift $ runProviderDestroy provider (resourceReferenceReference resourceReference)
-            runDB $ delete resourceId
-            pure destroyResult
-        pure (ResourceId providerName resourceName, result)
+      forConcurrently (M.toList resources) $ \(resourceName, _) ->
+        let resourceId = ResourceId providerName resourceName
+         in withResourceIdSource resourceId $ do
+              mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
+              result <- case mLocalResource of
+                Nothing -> do
+                  -- There was nothing to destroy, so we don't do anything but still
+                  -- consider it a success.
+                  -- If we were to fail here, the destroy command could not be
+                  -- idempotent.
+                  logInfoN "Not destroying because it doesn't exist locally."
+                  pure DestroySuccess
+                Just (Entity resourceId resourceReference) -> do
+                  logInfoN "Destroying."
+                  logDebugN "Destroy: Starting"
+                  destroyResult <- lift $ runProviderDestroy provider (resourceReferenceReference resourceReference)
+                  logDebugN "Deleting local reference."
+                  runDB $ delete resourceId
+                  logDebugN "Destroy: Done"
+                  pure destroyResult
+              case result of
+                DestroyFailure err -> logErrorN $ T.pack $ unlines ["Failed to destroy:", err]
+                DestroySuccess -> logInfoN "Destroyed successfully."
+              pure (ResourceId providerName resourceName, result)

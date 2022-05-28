@@ -13,6 +13,7 @@ import Data.Aeson.Encode.Pretty as JSON
 import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Database.Persist.Sql
@@ -91,3 +92,17 @@ resourceNameChunk = fore yellow . chunk . unResourceName
 
 resourceIdChunk :: ResourceId -> Chunk
 resourceIdChunk = fore yellow . chunk . renderResourceId
+
+withResourceIdSource :: ResourceId -> C a -> C a
+withResourceIdSource resourceId (ReaderT func) = ReaderT $ \env ->
+  renameSource (renderResourceId resourceId) (func env)
+
+renameSource :: Text -> LoggingT m a -> LoggingT m a
+renameSource looperName = modLogSource $ \source -> if source == "" then looperName else source
+
+modLogSource :: (LogSource -> LogSource) -> LoggingT m a -> LoggingT m a
+modLogSource func (LoggingT mFunc) = LoggingT $ \logFunc ->
+  let newLogFunc loc source level str =
+        let source' = func source
+         in logFunc loc source' level str
+   in mFunc newLogFunc
