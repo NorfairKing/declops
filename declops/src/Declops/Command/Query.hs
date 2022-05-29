@@ -66,7 +66,21 @@ getApplyContexts dependenciesWithProviders =
                   logDebugN "Query: Starting"
                   remoteState <- lift $ runProviderQuery provider reference
                   logDebugN "Query: Done"
-                  pure $ case remoteState of
-                    DoesNotExistRemotely -> ExistsLocallyButNotRemotely reference
-                    ExistsRemotely output -> ExistsLocallyAndRemotely reference output
+                  case remoteState of
+                    DoesNotExistRemotely -> do
+                      logInfoN $
+                        T.pack $
+                          unlines
+                            [ "Resource exists locally but not remotely, with reference",
+                              showJSON reference
+                            ]
+                      pure $ ExistsLocallyButNotRemotely reference
+                    ExistsRemotely output -> do
+                      logInfoN $
+                        T.pack $
+                          unlines
+                            [ "Resource exists locally and remotely, with reference",
+                              showJSON reference
+                            ]
+                      pure $ ExistsLocallyAndRemotely reference output
               pure (resourceId, (provider, dependencies, applyContext))

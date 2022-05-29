@@ -6,3 +6,5 @@
     name: "Use ++"
 - ignore:
     name: "Use const"
+- ignore:
+    name: "Avoid lambda"

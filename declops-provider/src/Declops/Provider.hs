@@ -119,7 +119,7 @@ runProviderApply ::
   ApplyContext reference output ->
   LoggingT IO (ApplyResult reference output)
 runProviderApply provider specification applyContext =
-  runPCatchingExceptions (ApplyFailure . ApplyException . displayException) $
+  runPCatchingExceptionsWith ApplyFailure (ApplyFailure . ApplyException . displayException) $
     providerApply provider specification applyContext
 
 runProviderCheck ::
@@ -128,7 +128,7 @@ runProviderCheck ::
   reference ->
   LoggingT IO (CheckResult output)
 runProviderCheck provider specification reference =
-  runPCatchingExceptions (CheckFailure . displayException) $
+  unP $
     providerCheck provider specification reference
 
 runProviderDestroy ::
@@ -136,7 +136,7 @@ runProviderDestroy ::
   reference ->
   LoggingT IO DestroyResult
 runProviderDestroy provider reference =
-  runPCatchingExceptions (DestroyFailure . displayException) $
+  unP $
     providerDestroy provider reference
 
 newtype P a = P {unP :: LoggingT IO a}
@@ -145,13 +145,17 @@ newtype P a = P {unP :: LoggingT IO a}
 throwP :: Exception e => e -> P a
 throwP = P . liftIO . throwIO
 
-runPCatchingExceptions :: (forall e. Exception e => e -> a) -> P a -> LoggingT IO a
-runPCatchingExceptions wrapper func = unP func `catches` exceptionHandlers wrapper
+runPCatchingExceptionsWith :: Exception specificException => (specificException -> a) -> (forall e. Exception e => e -> a) -> P a -> LoggingT IO a
+runPCatchingExceptionsWith specificWrapper wrapper func =
+  unP func
+    `catches` exceptionHandlersWith specificWrapper wrapper
 
-exceptionHandlers :: MonadIO m => (forall e. Exception e => e -> a) -> [Handler m a]
-exceptionHandlers wrapper =
+exceptionHandlersWith :: (MonadIO m, Exception specificException) => (specificException -> a) -> (forall e. Exception e => e -> a) -> [Handler m a]
+exceptionHandlersWith specificWrapper wrapper =
   [ -- Re-throw AsyncException, otherwise execution will not terminate on SIGINT (ctrl-c).
     Handler (\e -> throwIO (e :: AsyncException)),
+    -- Catch the specific exception
+    Handler (\e -> return (specificWrapper e)),
     -- Catch all the rest
     Handler (\e -> return $ wrapper (e :: SomeException))
   ]

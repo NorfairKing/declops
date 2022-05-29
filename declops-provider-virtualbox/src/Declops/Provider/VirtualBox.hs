@@ -10,6 +10,7 @@ module Declops.Provider.VirtualBox where
 import Autodocodec
 import Control.Arrow (left)
 import Control.Exception
+import Control.Monad
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString.Char8 as SB8
 import qualified Data.ByteString.Lazy as LB
@@ -128,6 +129,14 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext =
       pure $ ApplySuccess uuid output
     ExistsLocallyButNotRemotely uuid -> do
       logDebugN $ T.pack $ unwords ["VM with this UUID vanished, creating a new one with the same uuid:", UUID.toString uuid]
+
+      -- Make sure there's no settings file in the way.
+      predictedSettingsFile <- predictSettionsFile virtualBoxSpecificationName virtualBoxSpecificationBaseFolder
+      settingsFileAlreadyExists <- doesFileExist predictedSettingsFile
+      when settingsFileAlreadyExists $ do
+        logDebugN "Settings file already existed, even if the vm has vanished, so removing it."
+        liftIO $ ignoringAbsence $ removeFile predictedSettingsFile
+
       (uuid, settingsFile) <- makeVirtualBox virtualBoxSpecificationName virtualBoxSpecificationBaseFolder (Just uuid)
       registerVirtualBox settingsFile
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = T.pack $ fromAbsFile settingsFile}
@@ -141,6 +150,7 @@ destroyVirtualBox uuid = undefined
 
 makeVirtualBox :: Text -> Text -> Maybe UUID -> P (UUID, Path Abs File)
 makeVirtualBox name baseFolder mUuid = do
+  logDebugN "Creating the VM settings file."
   (ec, output) <-
     readProcessStdout $
       proc
@@ -160,16 +170,36 @@ makeVirtualBox name baseFolder mUuid = do
             case T.splitOn ": " $ TE.decodeUtf8With TE.lenientDecode t of
               [name, val] -> Just (name, val)
               _ -> Nothing
-      case lookup "UUID" tups >>= UUID.fromText of
-        Nothing -> throwP $ ApplyException "Expected to have found a uuid."
-        Just uuid -> case lookup "SettingsFile" tups of
-          Nothing -> throwP $ ApplyException "Expected to have found a settings file."
-          Just settingsFileString -> do
-            settingsFile <- resolveFile' $ T.unpack settingsFileString
-            pure (uuid, settingsFile)
+      let requireVal key = case lookup key tups of
+            Nothing ->
+              throwP $
+                ApplyException $
+                  unlines $
+                    unwords ["Expected to have found this key in the createvm output:", show key] :
+                    map show tups
+            Just val -> pure val
+
+      uuidVal <- requireVal "UUID"
+      uuid <- case UUID.fromText uuidVal of
+        Nothing -> throwP $ ApplyException $ unwords ["Could not parse uuid:", show uuidVal]
+        Just u -> pure u
+      settingsFileVal <- requireVal "Settings file"
+      settingsFile <- resolveFile' $ T.unpack settingsFileVal
+      pure (uuid, settingsFile)
+
+predictSettionsFile :: Text -> Text -> P (Path Abs File)
+predictSettionsFile name baseFolder = do
+  baseDir <- resolveDir' $ T.unpack baseFolder
+  settingsFile <-
+    resolveFile baseDir $
+      let n = T.unpack name
+       in concat [n, "/", n, ".vbox"]
+  logDebugN $ T.pack $ unwords ["Predicting that the settings file will be at", fromAbsFile settingsFile]
+  pure settingsFile
 
 registerVirtualBox :: Path Abs File -> P ()
 registerVirtualBox settingsFile = do
+  logDebugN "Registering the VM."
   ec <- runProcess $ proc "VBoxManage" ["registervm", fromAbsFile settingsFile]
   case ec of
     ExitFailure c -> throwP $ ApplyException $ unwords ["registervm failed with exit code:", show c]
