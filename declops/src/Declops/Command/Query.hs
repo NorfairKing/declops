@@ -86,7 +86,8 @@ getApplyContexts dependenciesWithProviders =
                           logInfoN $
                             T.pack $
                               unlines
-                                [ "Resource exists locally but not remotely, with reference",
+                                [ "Resource exists locally but not remotely",
+                                  "reference:",
                                   showJSON reference
                                 ]
                           pure $ ExistsLocallyButNotRemotely reference
@@ -94,8 +95,11 @@ getApplyContexts dependenciesWithProviders =
                           logInfoN $
                             T.pack $
                               unlines
-                                [ "Resource exists locally and remotely, with reference",
-                                  showJSON reference
+                                [ "Resource exists locally and remotely",
+                                  "reference:",
+                                  showJSON reference,
+                                  "output:",
+                                  showJSON output
                                 ]
                           pure $ ExistsLocallyAndRemotely reference output
               pure (resourceId, (provider, dependencies, errOrApplyContext))

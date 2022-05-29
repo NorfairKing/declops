@@ -102,7 +102,8 @@ declopsApplyResults = do
             logInfoN $
               T.pack $
                 unlines
-                  [ "Applying:",
+                  [ "Applying",
+                    "specification:",
                     showJSON specification
                   ]
 
