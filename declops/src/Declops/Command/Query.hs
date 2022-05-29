@@ -25,13 +25,18 @@ declopsQuery = do
   putTable $
     header :
     map
-      ( \(ResourceId {..}, applyContext) ->
+      ( \(ResourceId {..}, errOrApplyContext) ->
           [ providerNameChunk resourceIdProvider,
             resourceNameChunk resourceIdResource,
-            applyContextChunk applyContext
+            errOrApplyContextChunk errOrApplyContext
           ]
       )
       (M.toList results)
+
+errOrApplyContextChunk :: Either QueryException (ApplyContext reference output) -> Chunk
+errOrApplyContextChunk = \case
+  Left err -> fore red "error"
+  Right ac -> applyContextChunk ac
 
 applyContextChunk :: ApplyContext reference output -> Chunk
 applyContextChunk = \case
@@ -39,7 +44,7 @@ applyContextChunk = \case
   ExistsLocallyButNotRemotely _ -> fore red "missing"
   ExistsLocallyAndRemotely _ _ -> fore green "exists"
 
-declopsQueryResults :: C (Map ResourceId JSONApplyContext)
+declopsQueryResults :: C (Map ResourceId (Either QueryException JSONApplyContext))
 declopsQueryResults = do
   DependenciesSpecification dependenciesMap <- nixEvalGraph
 
@@ -47,7 +52,7 @@ declopsQueryResults = do
 
 getApplyContexts ::
   Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) ->
-  C (Map ResourceId (JSONProvider, [ResourceId], JSONApplyContext))
+  C (Map ResourceId (JSONProvider, [ResourceId], Either QueryException JSONApplyContext))
 getApplyContexts dependenciesWithProviders =
   fmap (M.fromList . concat) $
     forConcurrently (M.toList dependenciesWithProviders) $ \(_, (provider@Provider {..}, resources)) ->
@@ -56,31 +61,41 @@ getApplyContexts dependenciesWithProviders =
          in withResourceIdSource resourceId $ do
               mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
 
-              applyContext <- case mLocalResource of
+              errOrApplyContext <- case mLocalResource of
                 Nothing -> do
                   logInfoN "Not querying the current state because we have no local reference."
-                  pure DoesNotExistLocallyNorRemotely
+                  pure $ Right DoesNotExistLocallyNorRemotely
                 Just (Entity _ resourceReference) -> do
                   logInfoN "Querying the current state."
                   let reference = resourceReferenceReference resourceReference
                   logDebugN "Query: Starting"
-                  remoteState <- lift $ runProviderQuery provider reference
+                  queryResult <- lift $ runProviderQuery provider reference
                   logDebugN "Query: Done"
-                  case remoteState of
-                    DoesNotExistRemotely -> do
-                      logInfoN $
+                  case queryResult of
+                    QueryFailure err -> do
+                      logErrorN $
                         T.pack $
                           unlines
-                            [ "Resource exists locally but not remotely, with reference",
-                              showJSON reference
+                            [ "Failed to query:",
+                              unQueryException err
                             ]
-                      pure $ ExistsLocallyButNotRemotely reference
-                    ExistsRemotely output -> do
-                      logInfoN $
-                        T.pack $
-                          unlines
-                            [ "Resource exists locally and remotely, with reference",
-                              showJSON reference
-                            ]
-                      pure $ ExistsLocallyAndRemotely reference output
-              pure (resourceId, (provider, dependencies, applyContext))
+                      pure $ Left err
+                    QuerySuccess remoteState ->
+                      Right <$> case remoteState of
+                        DoesNotExistRemotely -> do
+                          logInfoN $
+                            T.pack $
+                              unlines
+                                [ "Resource exists locally but not remotely, with reference",
+                                  showJSON reference
+                                ]
+                          pure $ ExistsLocallyButNotRemotely reference
+                        ExistsRemotely output -> do
+                          logInfoN $
+                            T.pack $
+                              unlines
+                                [ "Resource exists locally and remotely, with reference",
+                                  showJSON reference
+                                ]
+                          pure $ ExistsLocallyAndRemotely reference output
+              pure (resourceId, (provider, dependencies, errOrApplyContext))

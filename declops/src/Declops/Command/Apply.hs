@@ -52,7 +52,12 @@ declopsApplyResults :: C (Map ResourceId JSONApplyResult)
 declopsApplyResults = do
   DependenciesSpecification dependenciesMap <- nixEvalGraph
 
-  applyContexts <- getApplyContexts dependenciesMap
+  errOrApplyContexts <- getApplyContexts dependenciesMap
+
+  applyContexts <- forM errOrApplyContexts $ \(provider, dependencies, errOrApplyContext) -> case errOrApplyContext of
+    -- TODO are we sure we want to die here?
+    Left err -> liftIO $ die $ unwords ["Not applying because a query failed:", unQueryException err]
+    Right applyContext -> pure (provider, dependencies, applyContext)
 
   outputVars <- forM applyContexts $ const newEmptyMVar
 

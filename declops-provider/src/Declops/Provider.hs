@@ -99,7 +99,7 @@ instance HasCodec (Path Abs File) where
 -- Getting them all right is not an easy thing to do, which is why we provide a test suite.
 data Provider specification reference output = Provider
   { providerName :: !ProviderName,
-    providerQuery :: !(reference -> P (RemoteState output)),
+    providerQuery :: !(reference -> P (QueryResult output)),
     providerApply :: !(specification -> ApplyContext reference output -> P (ApplyResult reference output)),
     providerCheck :: !(specification -> reference -> P (CheckResult output)),
     providerDestroy :: !(reference -> P DestroyResult)
@@ -109,9 +109,10 @@ data Provider specification reference output = Provider
 runProviderQuery ::
   Provider specification reference output ->
   reference ->
-  LoggingT IO (RemoteState output)
+  LoggingT IO (QueryResult output)
 runProviderQuery provider reference =
-  unP $ providerQuery provider reference
+  runPCatchingExceptionsWith QueryFailure (QueryFailure . QueryException . displayException) $
+    providerQuery provider reference
 
 runProviderApply ::
   Provider specification reference output ->
@@ -172,6 +173,19 @@ data RemoteState output
   = DoesNotExistRemotely
   | ExistsRemotely !output
   deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
+
+type JSONQueryResult = QueryResult JSON.Value
+
+data QueryResult output
+  = QuerySuccess !(RemoteState output)
+  | QueryFailure !QueryException
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
+
+newtype QueryException = QueryException {unQueryException :: String}
+  deriving stock (Generic)
+  deriving newtype (Show, Read, Eq, IsString)
+
+instance Exception QueryException
 
 type JSONApplyContext = ApplyContext JSON.Value JSON.Value
 

@@ -37,7 +37,7 @@ import System.Process.Typed
 
 data VirtualBoxSpecification = VirtualBoxSpecification
   { virtualBoxSpecificationName :: !Text,
-    virtualBoxSpecificationBaseFolder :: !Text -- Text because of json roundtrips
+    virtualBoxSpecificationBaseFolder :: !(Path Abs Dir)
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec VirtualBoxSpecification)
@@ -89,37 +89,40 @@ virtualBoxProvider =
       providerDestroy = destroyVirtualBox
     }
 
-queryVirtualBox :: UUID -> P (RemoteState VirtualBoxOutput)
-queryVirtualBox uuid = liftIO $ do
-  (ec, output) <-
-    readProcessStdout $
-      proc
-        "VBoxManage"
-        [ "showvminfo",
-          UUID.toString uuid,
-          "--details",
-          "--machinereadable"
-        ]
+queryVirtualBox :: UUID -> P (QueryResult VirtualBoxOutput)
+queryVirtualBox uuid = do
+  let pc =
+        proc
+          "VBoxManage"
+          [ "showvminfo",
+            UUID.toString uuid,
+            "--details",
+            "--machinereadable"
+          ]
+  logProcessConfig pc
+  (ec, output) <- readProcessStdout pc
 
   case ec of
     ExitSuccess -> do
-      let tups = map (T.breakOn "=") (T.lines (TE.decodeUtf8 (LB.toStrict output)))
+      let tups = flip mapMaybe (T.lines (TE.decodeUtf8 (LB.toStrict output))) $ \t -> case T.splitOn "=" t of
+            [key, val] -> Just (key, val)
+            _ -> Nothing
       virtualBoxOutputUUID <- case lookup "UUID" tups of
-        Nothing -> die "uuid not found." -- TODO
-        Just uuidText -> case UUID.fromText uuidText of
-          Nothing -> die "uuid not readable"
+        Nothing -> liftIO $ die "uuid not found." -- TODO
+        Just uuidText -> case UUID.fromString $ read $ T.unpack uuidText of
+          Nothing -> liftIO $ die $ unwords ["uuid not readable:", show uuidText]
           Just uuid -> pure uuid
       virtualBoxOutputSettingsFile <- case lookup "CfgFile" tups of
-        Nothing -> die "settings file not found."
+        Nothing -> liftIO $ die "settings file not found."
         Just stf -> pure stf
-      pure $ ExistsRemotely VirtualBoxOutput {..}
-    ExitFailure _ -> pure DoesNotExistRemotely
+      pure $ QuerySuccess $ ExistsRemotely VirtualBoxOutput {..}
+    ExitFailure _ -> pure $ QuerySuccess DoesNotExistRemotely
 
 applyVirtualBox ::
   VirtualBoxSpecification ->
   ApplyContext UUID VirtualBoxOutput ->
   P (ApplyResult UUID VirtualBoxOutput)
-applyVirtualBox VirtualBoxSpecification {..} applyContext =
+applyVirtualBox VirtualBoxSpecification {..} applyContext = do
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
       logDebugN "Creating a brand new VM."
@@ -148,26 +151,30 @@ checkVirtualBox VirtualBoxSpecification {..} uuid = undefined
 destroyVirtualBox :: UUID -> P DestroyResult
 destroyVirtualBox uuid = undefined
 
-makeVirtualBox :: Text -> Text -> Maybe UUID -> P (UUID, Path Abs File)
+makeVirtualBox :: Text -> Path Abs Dir -> Maybe UUID -> P (UUID, Path Abs File)
 makeVirtualBox name baseFolder mUuid = do
   logDebugN "Creating the VM settings file."
-  (ec, output) <-
-    readProcessStdout $
-      proc
-        "VBoxManage"
-        [ "createvm",
-          "--name",
-          T.unpack name,
-          "--ostype",
-          "Linux_64",
-          "--basefolder",
-          T.unpack baseFolder
-        ]
+  let pc =
+        proc
+          "VBoxManage"
+          [ "createvm",
+            "--name",
+            T.unpack name,
+            "--ostype",
+            "Linux_64",
+            "--basefolder",
+            fromAbsDir baseFolder
+          ]
+
+  logProcessConfig pc
+  (ec, output) <- readProcessStdout pc
   case ec of
     ExitFailure c -> throwP $ ApplyException $ unwords ["createvm failed with exit code:", show c]
     ExitSuccess -> do
-      let tups = flip mapMaybe (SB8.lines (LB.toStrict output)) $ \t ->
-            case T.splitOn ": " $ TE.decodeUtf8With TE.lenientDecode t of
+      let outputText = TE.decodeUtf8With TE.lenientDecode $ LB.toStrict output
+      logDebugN $ T.pack $ unlines ["Read stdout:", T.unpack outputText]
+      let tups = flip mapMaybe (T.lines outputText) $ \t ->
+            case T.splitOn ": " t of
               [name, val] -> Just (name, val)
               _ -> Nothing
       let requireVal key = case lookup key tups of
@@ -183,15 +190,16 @@ makeVirtualBox name baseFolder mUuid = do
       uuid <- case UUID.fromText uuidVal of
         Nothing -> throwP $ ApplyException $ unwords ["Could not parse uuid:", show uuidVal]
         Just u -> pure u
+      logDebugN $ T.pack $ unwords ["VM was assigned uuid: ", show uuid]
       settingsFileVal <- requireVal "Settings file"
-      settingsFile <- resolveFile' $ T.unpack settingsFileVal
+      settingsFile <- resolveFile' $ read $ T.unpack $ T.replace "'" "\"" settingsFileVal
+      logDebugN $ T.pack $ unwords ["VM was assigned settings file: ", show settingsFile]
       pure (uuid, settingsFile)
 
-predictSettionsFile :: Text -> Text -> P (Path Abs File)
+predictSettionsFile :: Text -> Path Abs Dir -> P (Path Abs File)
 predictSettionsFile name baseFolder = do
-  baseDir <- resolveDir' $ T.unpack baseFolder
   settingsFile <-
-    resolveFile baseDir $
+    resolveFile baseFolder $
       let n = T.unpack name
        in concat [n, "/", n, ".vbox"]
   logDebugN $ T.pack $ unwords ["Predicting that the settings file will be at", fromAbsFile settingsFile]
@@ -200,7 +208,12 @@ predictSettionsFile name baseFolder = do
 registerVirtualBox :: Path Abs File -> P ()
 registerVirtualBox settingsFile = do
   logDebugN "Registering the VM."
-  ec <- runProcess $ proc "VBoxManage" ["registervm", fromAbsFile settingsFile]
+  let pc = proc "VBoxManage" ["registervm", fromAbsFile settingsFile]
+  logProcessConfig pc
+  ec <- runProcess pc
   case ec of
     ExitFailure c -> throwP $ ApplyException $ unwords ["registervm failed with exit code:", show c]
     ExitSuccess -> pure ()
+
+logProcessConfig :: ProcessConfig input output error -> P ()
+logProcessConfig pc = logDebugN $ T.pack $ show pc

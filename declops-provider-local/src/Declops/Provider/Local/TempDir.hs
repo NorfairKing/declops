@@ -66,14 +66,15 @@ tempDirProvider =
       providerDestroy = destroyTempDir
     }
 
-queryTempDir :: Path Abs Dir -> P (RemoteState TempDirOutput)
+queryTempDir :: Path Abs Dir -> P (QueryResult TempDirOutput)
 queryTempDir path = liftIO $ do
   exists <- doesDirExist path
   let output = TempDirOutput {tempDirOutputPath = path}
   pure $
-    if exists
-      then ExistsRemotely output
-      else DoesNotExistRemotely
+    QuerySuccess $
+      if exists
+        then ExistsRemotely output
+        else DoesNotExistRemotely
 
 applyTempDir :: TempDirSpecification -> ApplyContext (Path Abs Dir) TempDirOutput -> P (ApplyResult (Path Abs Dir) TempDirOutput)
 applyTempDir TempDirSpecification {..} applyContext = liftIO $ do

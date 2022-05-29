@@ -66,17 +66,18 @@ tempFileProvider =
       providerDestroy = destroyTempFile
     }
 
-queryTempFile :: Path Abs File -> P (RemoteState TempFileOutput)
+queryTempFile :: Path Abs File -> P (QueryResult TempFileOutput)
 queryTempFile path = liftIO $ do
   mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile path
-  pure $ case mContents of
-    Nothing -> DoesNotExistRemotely
-    Just contents ->
-      ExistsRemotely
-        TempFileOutput
-          { tempFileOutputPath = path,
-            tempFileOutputContents = contents
-          }
+  pure $
+    QuerySuccess $ case mContents of
+      Nothing -> DoesNotExistRemotely
+      Just contents ->
+        ExistsRemotely
+          TempFileOutput
+            { tempFileOutputPath = path,
+              tempFileOutputContents = contents
+            }
 
 applyTempFile :: TempFileSpecification -> ApplyContext (Path Abs File) TempFileOutput -> P (ApplyResult (Path Abs File) TempFileOutput)
 applyTempFile TempFileSpecification {..} applyContext = liftIO $ do
