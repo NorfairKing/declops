@@ -19,5 +19,6 @@ To see what's already possible, you can dig into the `integration-tests` directo
 
 Would be nice too:
 
-* Monadic infrastructure: Which infrastructure to set up next can depend on previously set up infrastructure
+* Monadic infrastructure: Which infrastructure to set up next can depend on previously set up infrastructure.
+* Stateless version: A mode in which all providers must be locally stateless.
 

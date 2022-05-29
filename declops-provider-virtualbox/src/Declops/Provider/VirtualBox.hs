@@ -92,25 +92,10 @@ virtualBoxProvider =
 
 queryVirtualBox :: UUID -> P (QueryResult VirtualBoxOutput)
 queryVirtualBox uuid = do
-  let pc =
-        proc
-          "VBoxManage"
-          [ "showvminfo",
-            UUID.toString uuid,
-            "--details",
-            "--machinereadable"
-          ]
-  logProcessConfig pc
-  (ec, output) <- readProcessStdout pc
-
-  case ec of
-    ExitSuccess -> do
-      let outputText = TE.decodeUtf8With TE.lenientDecode $ LB.toStrict output
-      logDebugN $ T.pack $ unlines ["Read stdout:", T.unpack outputText]
-      let tups = flip mapMaybe (T.lines outputText) $ \t ->
-            case T.splitOn "=" t of
-              [key, val] -> Just (key, val)
-              _ -> Nothing
+  mTups <- getVMInfoTuples uuid
+  case mTups of
+    Nothing -> pure $ QuerySuccess DoesNotExistRemotely
+    Just tups -> do
       virtualBoxOutputUUID <- case lookup "UUID" tups of
         Nothing -> liftIO $ die "uuid not found." -- TODO
         Just uuidVal -> case UUID.fromString $ read $ T.unpack uuidVal of
@@ -122,7 +107,6 @@ queryVirtualBox uuid = do
           Nothing -> liftIO $ die $ unwords ["settings file not readable:", show settingsFileVal]
           Just settingsFile -> pure settingsFile
       pure $ QuerySuccess $ ExistsRemotely VirtualBoxOutput {..}
-    ExitFailure _ -> pure $ QuerySuccess DoesNotExistRemotely
 
 applyVirtualBox ::
   VirtualBoxSpecification ->
@@ -160,10 +144,74 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext = do
       pure $ ApplySuccess uuid output
 
 checkVirtualBox :: VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxOutput)
-checkVirtualBox VirtualBoxSpecification {..} uuid = undefined
+checkVirtualBox VirtualBoxSpecification {..} uuid = do
+  mTups <- getVMInfoTuples uuid
+  case mTups of
+    Nothing -> pure $ CheckFailure $ unwords ["VM does not exist:", show uuid]
+    Just tups -> do
+      let requireVal key = case lookup key tups of
+            Nothing ->
+              throwP $
+                ApplyException $ -- TODO
+                  unlines $
+                    unwords ["Expected to have found this key in the vminfo output:", show key] :
+                    map show tups
+            Just val -> pure val
+      uuidVal <- requireVal "UUID"
+      if uuidVal == UUID.toText uuid
+        then
+          pure $
+            CheckFailure $
+              unlines
+                [ "UUID does not match the reference:",
+                  unwords ["reference:", show uuid],
+                  unwords ["actual:", show uuidVal]
+                ]
+        else do
+          settingsFileVal <- requireVal "CfgFile"
+          if T.pack (fromAbsDir virtualBoxSpecificationBaseFolder) `T.isPrefixOf` T.pack (read (T.unpack settingsFileVal))
+            then pure $ CheckSuccess undefined
+            else
+              pure $
+                CheckFailure $
+                  unlines
+                    [ "The settings file is not in the base folder",
+                      unwords
+                        [ "Settings file:",
+                          show settingsFileVal
+                        ],
+                      unwords
+                        [ "Base folder:",
+                          show virtualBoxSpecificationBaseFolder
+                        ]
+                    ]
 
 destroyVirtualBox :: UUID -> P DestroyResult
 destroyVirtualBox uuid = undefined
+
+getVMInfoTuples :: UUID -> P (Maybe [(Text, Text)])
+getVMInfoTuples uuid = do
+  let pc =
+        proc
+          "VBoxManage"
+          [ "showvminfo",
+            UUID.toString uuid,
+            "--details",
+            "--machinereadable"
+          ]
+  logProcessConfig pc
+  (ec, output) <- readProcessStdout pc
+
+  case ec of
+    ExitSuccess -> do
+      let outputText = TE.decodeUtf8With TE.lenientDecode $ LB.toStrict output
+      logDebugN $ T.pack $ unlines ["Read stdout:", T.unpack outputText]
+      let tups = flip mapMaybe (T.lines outputText) $ \t ->
+            case T.splitOn "=" t of
+              [key, val] -> Just (key, val)
+              _ -> Nothing
+      pure $ Just tups
+    ExitFailure _ -> pure Nothing
 
 makeVirtualBox :: Text -> Path Abs Dir -> Maybe UUID -> P (UUID, Path Abs File)
 makeVirtualBox name baseFolder mUuid = do
