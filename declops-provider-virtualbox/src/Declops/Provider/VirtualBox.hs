@@ -113,7 +113,6 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext = do
     DoesNotExistLocallyNorRemotely -> do
       logDebugN "Creating a brand new VM."
       (uuid, settingsFile) <- makeVirtualBox virtualBoxSpecificationName virtualBoxSpecificationBaseFolder Nothing
-      registerVirtualBox settingsFile
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
       pure $ ApplySuccess uuid output
     ExistsLocallyButNotRemotely uuid -> do
@@ -127,7 +126,6 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext = do
         liftIO $ ignoringAbsence $ removeFile predictedSettingsFile
 
       (uuid, settingsFile) <- makeVirtualBox virtualBoxSpecificationName virtualBoxSpecificationBaseFolder (Just uuid)
-      registerVirtualBox settingsFile
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
       pure $ ApplySuccess uuid output
     ExistsLocallyAndRemotely uuid output -> do
@@ -241,7 +239,8 @@ makeVirtualBox name baseFolder mUuid = do
             "--ostype",
             "Linux_64",
             "--basefolder",
-            fromAbsDir baseFolder
+            fromAbsDir baseFolder,
+            "--register"
           ]
 
   logProcessConfig pc
@@ -282,16 +281,6 @@ predictSettionsFile name baseFolder = do
        in concat [n, "/", n, ".vbox"]
   logDebugN $ T.pack $ unwords ["Predicting that the settings file will be at", fromAbsFile settingsFile]
   pure settingsFile
-
-registerVirtualBox :: Path Abs File -> P ()
-registerVirtualBox settingsFile = do
-  logDebugN "Registering the VM."
-  let pc = proc "VBoxManage" ["registervm", fromAbsFile settingsFile]
-  logProcessConfig pc
-  ec <- runProcess pc
-  case ec of
-    ExitFailure c -> throwP $ ApplyException $ unwords ["registervm failed with exit code:", show c]
-    ExitSuccess -> pure ()
 
 logProcessConfig :: ProcessConfig input output error -> P ()
 logProcessConfig pc = logDebugN $ T.pack $ show pc
