@@ -92,21 +92,17 @@ virtualBoxProvider =
 
 queryVirtualBox :: UUID -> P (QueryResult VirtualBoxOutput)
 queryVirtualBox uuid = do
-  mTups <- getVMInfoTuples uuid
+  mTups <- getVMInfo uuid
   case mTups of
     Nothing -> pure $ QuerySuccess DoesNotExistRemotely
-    Just tups -> do
-      virtualBoxOutputUUID <- case lookup "UUID" tups of
-        Nothing -> liftIO $ die "uuid not found." -- TODO
-        Just uuidVal -> case UUID.fromString $ read $ T.unpack uuidVal of
-          Nothing -> liftIO $ die $ unwords ["uuid not readable:", show uuidVal]
-          Just uuid -> pure uuid
-      virtualBoxOutputSettingsFile <- case lookup "CfgFile" tups of
-        Nothing -> liftIO $ die "settings file not found."
-        Just settingsFileVal -> case readMaybe (T.unpack settingsFileVal) >>= parseAbsFile of
-          Nothing -> liftIO $ die $ unwords ["settings file not readable:", show settingsFileVal]
-          Just settingsFile -> pure settingsFile
-      pure $ QuerySuccess $ ExistsRemotely VirtualBoxOutput {..}
+    Just VirtualBoxInfo {..} ->
+      pure $
+        QuerySuccess $
+          ExistsRemotely $
+            VirtualBoxOutput
+              { virtualBoxOutputUUID = virtualBoxInfoUUID,
+                virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
+              }
 
 applyVirtualBox ::
   VirtualBoxSpecification ->
@@ -145,32 +141,20 @@ applyVirtualBox VirtualBoxSpecification {..} applyContext = do
 
 checkVirtualBox :: VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxOutput)
 checkVirtualBox VirtualBoxSpecification {..} uuid = do
-  mTups <- getVMInfoTuples uuid
+  mTups <- getVMInfo uuid
   case mTups of
     Nothing -> pure $ CheckFailure $ unwords ["VM does not exist:", show uuid]
-    Just tups -> do
-      let requireVal key = case lookup key tups of
-            Nothing ->
-              throwP $
-                ApplyException $ -- TODO
-                  unlines $
-                    unwords ["Expected to have found this key in the vminfo output:", show key] :
-                    map show tups
-            Just val -> pure val
-      uuidVal <- requireVal "UUID"
-      if uuidVal == UUID.toText uuid
-        then
-          pure $
-            CheckFailure $
-              unlines
-                [ "UUID does not match the reference:",
-                  unwords ["reference:", show uuid],
-                  unwords ["actual:", show uuidVal]
-                ]
-        else do
-          settingsFileVal <- requireVal "CfgFile"
-          if T.pack (fromAbsDir virtualBoxSpecificationBaseFolder) `T.isPrefixOf` T.pack (read (T.unpack settingsFileVal))
-            then pure $ CheckSuccess undefined
+    Just VirtualBoxInfo {..} -> do
+      if virtualBoxInfoUUID == uuid
+        then do
+          if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
+            then
+              pure $
+                CheckSuccess $
+                  VirtualBoxOutput
+                    { virtualBoxOutputUUID = uuid,
+                      virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
+                    }
             else
               pure $
                 CheckFailure $
@@ -178,19 +162,27 @@ checkVirtualBox VirtualBoxSpecification {..} uuid = do
                     [ "The settings file is not in the base folder",
                       unwords
                         [ "Settings file:",
-                          show settingsFileVal
+                          show virtualBoxInfoSettingsFile
                         ],
                       unwords
                         [ "Base folder:",
                           show virtualBoxSpecificationBaseFolder
                         ]
                     ]
+        else
+          pure $
+            CheckFailure $
+              unlines
+                [ "UUID does not match the reference:",
+                  unwords ["reference:", show uuid],
+                  unwords ["actual:", show virtualBoxInfoUUID]
+                ]
 
 destroyVirtualBox :: UUID -> P DestroyResult
 destroyVirtualBox uuid = undefined
 
-getVMInfoTuples :: UUID -> P (Maybe [(Text, Text)])
-getVMInfoTuples uuid = do
+getVMInfo :: UUID -> P (Maybe VirtualBoxInfo)
+getVMInfo uuid = do
   let pc =
         proc
           "VBoxManage"
@@ -210,8 +202,32 @@ getVMInfoTuples uuid = do
             case T.splitOn "=" t of
               [key, val] -> Just (key, val)
               _ -> Nothing
-      pure $ Just tups
+      let requireVal key = case lookup key tups of
+            Nothing ->
+              throwP $
+                ApplyException $ -- TODO
+                  unlines $
+                    unwords ["Expected to have found this key in the vminfo output:", show key] :
+                    map show tups
+            Just val -> pure val
+      virtualBoxInfoUUID <- case lookup "UUID" tups of
+        Nothing -> liftIO $ die "uuid not found." -- TODO
+        Just uuidVal -> case UUID.fromString $ read $ T.unpack uuidVal of
+          Nothing -> liftIO $ die $ unwords ["uuid not readable:", show uuidVal]
+          Just uuid -> pure uuid
+      virtualBoxInfoSettingsFile <- case lookup "CfgFile" tups of
+        Nothing -> liftIO $ die "settings file not found."
+        Just settingsFileVal -> case readMaybe (T.unpack settingsFileVal) >>= parseAbsFile of
+          Nothing -> liftIO $ die $ unwords ["settings file not readable:", show settingsFileVal]
+          Just settingsFile -> pure settingsFile
+      pure $ Just $ VirtualBoxInfo {..}
     ExitFailure _ -> pure Nothing
+
+data VirtualBoxInfo = VirtualBoxInfo
+  { virtualBoxInfoUUID :: !UUID,
+    virtualBoxInfoSettingsFile :: !(Path Abs File)
+  }
+  deriving (Show, Eq, Generic)
 
 makeVirtualBox :: Text -> Path Abs Dir -> Maybe UUID -> P (UUID, Path Abs File)
 makeVirtualBox name baseFolder mUuid = do
