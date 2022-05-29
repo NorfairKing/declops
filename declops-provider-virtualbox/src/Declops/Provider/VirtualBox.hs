@@ -177,7 +177,21 @@ checkVirtualBox VirtualBoxSpecification {..} uuid = do
                 ]
 
 destroyVirtualBox :: UUID -> P DestroyResult
-destroyVirtualBox uuid = undefined
+destroyVirtualBox uuid = do
+  logDebugN "Creating the VM settings file."
+  let pc =
+        proc
+          "VBoxManage"
+          [ "unregistervm",
+            UUID.toString uuid,
+            "--delete"
+          ]
+
+  logProcessConfig pc
+  ec <- runProcess pc
+  case ec of
+    ExitSuccess -> pure DestroySuccess
+    ExitFailure c -> pure $ DestroyFailure $ unwords ["VBoxManage unregister failed with exit code:", show c]
 
 getVMInfo :: UUID -> P (Maybe VirtualBoxInfo)
 getVMInfo uuid = do
