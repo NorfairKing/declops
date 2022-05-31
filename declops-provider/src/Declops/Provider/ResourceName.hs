@@ -11,6 +11,7 @@ import Data.Aeson (FromJSON, FromJSONKey (..), FromJSONKeyFunction (..), ToJSON,
 import Data.Aeson.Types (toJSONKeyText)
 import Data.Char as Char
 import Data.Proxy
+import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Validity
@@ -49,6 +50,11 @@ resourceNameText = unResourceName
 
 parseResourceName :: Text -> Either String ResourceName
 parseResourceName = prettyValidate . ResourceName
+
+instance IsString ResourceName where
+  fromString s = case parseResourceName (fromString s) of
+    Left err -> error err
+    Right rn -> rn
 
 instance FromJSONKey ResourceName where
   fromJSONKey = FromJSONKeyTextParser $ \t ->

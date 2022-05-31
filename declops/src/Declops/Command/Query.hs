@@ -35,7 +35,7 @@ declopsQuery = do
 
 errOrApplyContextChunk :: Either ProviderException (ApplyContext reference output) -> Chunk
 errOrApplyContextChunk = \case
-  Left err -> fore red "error"
+  Left _ -> fore red "error"
   Right ac -> applyContextChunk ac
 
 applyContextChunk :: ApplyContext reference output -> Chunk

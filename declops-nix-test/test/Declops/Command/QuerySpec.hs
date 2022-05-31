@@ -14,7 +14,8 @@ spec = sequential $ do
   it "Sees that no remote resources exist before the first application" $
     testC "simple-success.nix" $ do
       results <- declopsQueryResults
-      liftIO $ results `shouldSatisfy` all (== DoesNotExistLocallyNorRemotely)
+      liftIO $ results `shouldSatisfy` all (== Right DoesNotExistLocallyNorRemotely)
+
   it "Is idempotent before the first application" $
     testC "simple-success.nix" $ do
       results1 <- declopsQueryResults

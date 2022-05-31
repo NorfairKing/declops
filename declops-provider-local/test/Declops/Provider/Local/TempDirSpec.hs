@@ -24,6 +24,7 @@ spec = do
   modifyMaxSuccess (`div` 10) $
     tempDirSpec "declops-temporary-dir-provider-test" $
       localProviderSpec
+        False
         tempDirProvider
         (\tdir -> (</>) tdir <$> genValid)
         (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])

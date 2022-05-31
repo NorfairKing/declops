@@ -8,19 +8,13 @@
 module Declops.Provider.VirtualBox where
 
 import Autodocodec
-import Control.Arrow (left)
-import Control.Exception
 import Control.Monad
 import Data.Aeson (FromJSON, ToJSON)
-import qualified Data.ByteString.Char8 as SB8
 import qualified Data.ByteString.Lazy as LB
-import Data.List
 import Data.Maybe
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
-import qualified Data.Text.IO as TIO
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
 import Data.Validity
@@ -32,7 +26,6 @@ import GHC.Generics (Generic)
 import Path
 import Path.IO
 import System.Exit
-import System.IO (hClose)
 import System.Process.Typed
 import Text.Read
 
@@ -84,7 +77,7 @@ virtualBoxProvider =
     }
 
 queryVirtualBox :: ResourceName -> UUID -> P (QueryResult VirtualBoxOutput)
-queryVirtualBox resourceName uuid = do
+queryVirtualBox _ uuid = do
   mTups <- getVMInfo uuid
   case mTups of
     Nothing -> pure $ QuerySuccess DoesNotExistRemotely
@@ -102,7 +95,7 @@ applyVirtualBox ::
   VirtualBoxSpecification ->
   ApplyContext UUID VirtualBoxOutput ->
   P (ApplyResult UUID VirtualBoxOutput)
-applyVirtualBox resourceName specification@VirtualBoxSpecification {..} applyContext = do
+applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
       logDebugN "Creating a brand new VM."
@@ -119,9 +112,9 @@ applyVirtualBox resourceName specification@VirtualBoxSpecification {..} applyCon
         logDebugN "Settings file already existed, even if the vm has vanished, so removing it."
         liftIO $ ignoringAbsence $ removeFile predictedSettingsFile
 
-      (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder (Just uuid)
-      let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
-      pure $ ApplySuccess uuid output
+      (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder (Just uuid)
+      let output = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
+      pure $ ApplySuccess newUUID output
     ExistsLocallyAndRemotely uuid output -> do
       logDebugN $
         T.pack $
@@ -140,12 +133,12 @@ applyVirtualBox resourceName specification@VirtualBoxSpecification {..} applyCon
             else do
               logDebugN "VM is deployed a different settings file, recreating it."
               unregisterVirtualBox resourceName uuid
-              (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder Nothing
-              let newOutput = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
-              pure $ ApplySuccess uuid newOutput
+              (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder Nothing
+              let newOutput = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
+              pure $ ApplySuccess newUUID newOutput
 
 checkVirtualBox :: ResourceName -> VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxOutput)
-checkVirtualBox resourceName VirtualBoxSpecification {..} uuid = do
+checkVirtualBox _ VirtualBoxSpecification {..} uuid = do
   mTups <- getVMInfo uuid
   case mTups of
     Nothing -> fail $ unwords ["VM does not exist:", show uuid]
@@ -186,10 +179,12 @@ destroyVirtualBox resourceName uuid = do
   mVmInfo <- getVMInfo uuid
   case mVmInfo of
     Nothing -> pure DestroySuccess
-    Just _ -> unregisterVirtualBox resourceName uuid
+    Just _ -> do
+      unregisterVirtualBox resourceName uuid
+      pure DestroySuccess
 
-unregisterVirtualBox :: ResourceName -> UUID -> P DestroyResult
-unregisterVirtualBox resourceName uuid = do
+unregisterVirtualBox :: ResourceName -> UUID -> P ()
+unregisterVirtualBox _ uuid = do
   logDebugN $ T.pack $ unwords ["Unregistering virtualbox with uuid", UUID.toString uuid]
   let pc =
         proc
@@ -202,7 +197,7 @@ unregisterVirtualBox resourceName uuid = do
   logProcessConfig pc
   ec <- runProcess pc
   case ec of
-    ExitSuccess -> pure DestroySuccess
+    ExitSuccess -> pure ()
     ExitFailure c -> fail $ unwords ["VBoxManage unregister failed with exit code:", show c]
 
 getVMInfo :: UUID -> P (Maybe VirtualBoxInfo)
@@ -234,16 +229,14 @@ getVMInfo uuid = do
                     unwords ["Expected to have found this key in the vminfo output:", show key] :
                     map show tups
             Just val -> pure val
-      virtualBoxInfoUUID <- case lookup "UUID" tups of
-        Nothing -> liftIO $ die "uuid not found." -- TODO
-        Just uuidVal -> case UUID.fromString $ read $ T.unpack uuidVal of
-          Nothing -> liftIO $ die $ unwords ["uuid not readable:", show uuidVal]
-          Just uuid -> pure uuid
-      virtualBoxInfoSettingsFile <- case lookup "CfgFile" tups of
-        Nothing -> liftIO $ die "settings file not found."
-        Just settingsFileVal -> case readMaybe (T.unpack settingsFileVal) >>= parseAbsFile of
-          Nothing -> liftIO $ die $ unwords ["settings file not readable:", show settingsFileVal]
-          Just settingsFile -> pure settingsFile
+      uuidVal <- requireVal "UUID"
+      virtualBoxInfoUUID <- case UUID.fromString $ read $ T.unpack uuidVal of
+        Nothing -> fail $ unwords ["uuid not readable:", show uuidVal]
+        Just u -> pure u
+      settingsFileVal <- requireVal "CfgFile"
+      virtualBoxInfoSettingsFile <- case readMaybe (T.unpack settingsFileVal) >>= parseAbsFile of
+        Nothing -> fail $ unwords ["settings file not readable:", show settingsFileVal]
+        Just settingsFile -> pure settingsFile
       pure $ Just $ VirtualBoxInfo {..}
     ExitFailure _ -> pure Nothing
 
@@ -256,18 +249,22 @@ data VirtualBoxInfo = VirtualBoxInfo
 makeVirtualBox :: ResourceName -> Path Abs Dir -> Maybe UUID -> P (UUID, Path Abs File)
 makeVirtualBox resourceName baseFolder mUuid = do
   logDebugN "Creating the VM settings file."
-  let pc =
-        proc
-          "VBoxManage"
-          [ "createvm",
-            "--name",
-            T.unpack $ resourceNameText resourceName,
-            "--ostype",
-            "Linux_64",
-            "--basefolder",
-            fromAbsDir baseFolder,
-            "--register"
+  let args =
+        concat
+          [ [ "createvm",
+              "--name",
+              T.unpack $ resourceNameText resourceName,
+              "--ostype",
+              "Linux_64",
+              "--basefolder",
+              fromAbsDir baseFolder,
+              "--register"
+            ],
+            case mUuid of
+              Nothing -> []
+              Just uuid -> ["--uuid", UUID.toString uuid]
           ]
+  let pc = proc "VBoxManage" args
 
   logProcessConfig pc
   (ec, output) <- readProcessStdout pc

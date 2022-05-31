@@ -63,12 +63,12 @@ declopsDestroyResults = do
                   -- idempotent.
                   logInfoN "Not destroying because it doesn't exist locally."
                   pure DestroySuccess
-                Just (Entity resourceId resourceReference) -> do
+                Just (Entity resourceReferenceId resourceReference) -> do
                   logInfoN "Destroying."
                   logDebugN "Destroy: Starting"
                   destroyResult <- lift $ runProviderDestroy provider resourceName (resourceReferenceReference resourceReference)
                   logDebugN "Deleting local reference."
-                  runDB $ delete resourceId
+                  runDB $ delete resourceReferenceId
                   logDebugN "Destroy: Done"
                   pure destroyResult
               case result of

@@ -38,6 +38,7 @@ tests:
     - QuickCheck
     - aeson
     - autodocodec
+    - bytestring
     - declops-provider-test
     - declops-provider-virtualbox
     - genvalidity-path
@@ -48,4 +49,5 @@ tests:
     - path-io
     - sydtest
     - text
+    - typed-process
     - uuid

@@ -10,7 +10,6 @@ import Control.Monad.Logger
 import Control.Monad.Reader
 import Data.Aeson as JSON
 import Data.Aeson.Encode.Pretty as JSON
-import qualified Data.ByteString.Char8 as SB8
 import qualified Data.ByteString.Lazy as LB
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -112,17 +111,19 @@ modLogSource func (LoggingT mFunc) = LoggingT $ \logFunc ->
 runColouredStderrLoggingT :: TerminalCapabilities -> LoggingT m a -> m a
 runColouredStderrLoggingT caps (LoggingT func) = func logFunc
   where
-    logFunc loc source level str = do
+    logFunc _ source level str = do
       let addColour = case level of
             LevelDebug -> id
             LevelInfo -> fore white
             LevelWarn -> fore yellow
             LevelError -> fore red
+            LevelOther _ -> id
       let levelChunk = addColour $ case level of
             LevelDebug -> "DEBUG"
             LevelInfo -> "INFO"
             LevelWarn -> "WARNING"
             LevelError -> "ERROR"
+            LevelOther t -> chunk t
           sourceChunk = addColour $ chunk source
           logStrChunk = addColour $ chunk $ TE.decodeUtf8 $ fromLogStr str
       let chunks = [levelChunk, " ", sourceChunk, " ", logStrChunk, "\n"]
