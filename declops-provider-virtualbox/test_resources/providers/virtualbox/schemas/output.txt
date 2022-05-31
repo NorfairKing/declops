@@ -1,2 +1,7 @@
 # VirtualBoxOutput
-<object>
+[37muuid[m: # [31mrequired[m
+  # vm uuid
+  [33m<string>[m
+[37msettings-file[m: # [31mrequired[m
+  # path to the settings file
+  [33m<string>[m

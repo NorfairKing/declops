@@ -33,7 +33,7 @@ spec = do
             (\_ -> genValid)
             ( \tdir -> (`suchThat` isValid) $ do
                 virtualBoxSpecificationName <- genValid `suchThat` (not . T.null)
-                virtualBoxSpecificationBaseFolder <- T.pack . fromAbsDir <$> ((</>) tdir <$> genValid)
+                virtualBoxSpecificationBaseFolder <- (</>) tdir <$> genValid
 
                 pure VirtualBoxSpecification {..}
             )
