@@ -25,6 +25,7 @@ import Declops.Provider
 import GHC.Generics (Generic)
 import Path
 import Path.IO
+import qualified System.Environment as System
 import System.Exit
 import System.Process.Typed
 import Text.Read
@@ -186,14 +187,13 @@ destroyVirtualBox resourceName uuid = do
 unregisterVirtualBox :: ResourceName -> UUID -> P ()
 unregisterVirtualBox _ uuid = do
   logDebugN $ T.pack $ unwords ["Unregistering virtualbox with uuid", UUID.toString uuid]
-  let pc =
-        proc
-          "VBoxManage"
-          [ "unregistervm",
-            UUID.toString uuid,
-            "--delete"
-          ]
-
+  pc <-
+    liftIO $
+      mkVBoxManageProcessConfig
+        [ "unregistervm",
+          UUID.toString uuid,
+          "--delete"
+        ]
   logProcessConfig pc
   ec <- runProcess pc
   case ec of
@@ -202,14 +202,14 @@ unregisterVirtualBox _ uuid = do
 
 getVMInfo :: UUID -> P (Maybe VirtualBoxInfo)
 getVMInfo uuid = do
-  let pc =
-        proc
-          "VBoxManage"
-          [ "showvminfo",
-            UUID.toString uuid,
-            "--details",
-            "--machinereadable"
-          ]
+  pc <-
+    liftIO $
+      mkVBoxManageProcessConfig
+        [ "showvminfo",
+          UUID.toString uuid,
+          "--details",
+          "--machinereadable"
+        ]
   logProcessConfig pc
   (ec, output) <- readProcessStdout pc
 
@@ -264,8 +264,7 @@ makeVirtualBox resourceName baseFolder mUuid = do
               Nothing -> []
               Just uuid -> ["--uuid", UUID.toString uuid]
           ]
-  let pc = proc "VBoxManage" args
-
+  pc <- liftIO $ mkVBoxManageProcessConfig args
   logProcessConfig pc
   (ec, output) <- readProcessStdout pc
   case ec of
@@ -303,6 +302,13 @@ predictSettionsFile resourceName baseFolder = do
        in concat [n, "/", n, ".vbox"]
   logDebugN $ T.pack $ unwords ["Predicting that the settings file will be at", fromAbsFile settingsFile]
   pure settingsFile
+
+mkVBoxManageProcessConfig :: [String] -> IO (ProcessConfig () () ())
+mkVBoxManageProcessConfig args = do
+  env <- System.getEnvironment
+  let allowedVars = ["HOME", "LANG", "LOCALE_ARCHIVE"]
+  let pc = setEnv (filter ((`elem` allowedVars) . fst) env) $ proc "VBoxManage" args
+  pure pc
 
 logProcessConfig :: ProcessConfig input output error -> P ()
 logProcessConfig pc = logDebugN $ T.pack $ show pc

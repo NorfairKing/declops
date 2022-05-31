@@ -18,6 +18,8 @@ import qualified Data.UUID as UUID
 import Declops.Provider.Test
 import Declops.Provider.VirtualBox
 import Path
+import Path.IO
+import System.Environment as System
 import System.Exit
 import System.Process.Typed
 import Test.QuickCheck
@@ -35,9 +37,9 @@ spec = do
   modifyMaxSuccess (const 1) $
     modifyMaxSize (const 10) $
       sequential $
-        before_ cleanupVMs $
-          afterAll_ cleanupVMs $
-            tempDirSpec tempDirTemplate $
+        tempDirSpec tempDirTemplate $
+          beforeWith withTmpHome $
+            before_ cleanupVMs $
               localProviderSpec
                 False
                 virtualBoxProvider
@@ -47,15 +49,25 @@ spec = do
                     pure VirtualBoxSpecification {..}
                 )
 
+-- WARNING: Not threadsafe
+--
+-- We set `HOME` so that VBoxManage doesn't polute our homedir
+withTmpHome :: Path Abs Dir -> IO (Path Abs Dir)
+withTmpHome tdir = do
+  tmpHomeDir <- resolveDir tdir "tmp-home"
+  System.setEnv "HOME" (fromAbsDir tmpHomeDir)
+  pure tdir
+
+-- Cleanup all vms in the temporary directory before the test, because some
+-- with the same will be made because we run property tests.
 cleanupVMs :: IO ()
 cleanupVMs = do
-  let listPc =
-        proc
-          "VBoxManage"
-          [ "list",
-            "vms",
-            "--long"
-          ]
+  listPc <-
+    mkVBoxManageProcessConfig
+      [ "list",
+        "vms",
+        "--long"
+      ]
   (listEc, output) <- readProcessStdout listPc
   case listEc of
     ExitFailure c -> fail $ unwords ["VBoxManage list vms failed with exit code:", show c]
@@ -68,12 +80,11 @@ cleanupVMs = do
       let uuidVals = mapMaybe (\(k, v) -> if k == "UUID" then UUID.fromText v else Nothing) tups
       -- TODO only remove declops test vms?
       forM_ uuidVals $ \uuid -> do
-        let unregisterPc =
-              proc
-                "VBoxManage"
-                [ "unregistervm",
-                  UUID.toString uuid
-                ]
+        unregisterPc <-
+          mkVBoxManageProcessConfig
+            [ "unregistervm",
+              UUID.toString uuid
+            ]
         unregisterEc <- runProcess unregisterPc
         case unregisterEc of
           ExitFailure c -> fail $ unwords ["VBoxManage unregister failed with exit code:", show c]
