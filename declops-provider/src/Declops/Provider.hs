@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -67,6 +68,9 @@ toJSONProvider provider =
             reference <- parseJSONOrErr referenceJSON
             providerDestroy provider resourceName reference
         }
+
+instance HasCodec () where
+  codec = Autodocodec.object "Unit" $ pure ()
 
 instance HasCodec (Path Rel Dir) where
   codec = bimapCodec (left show . parseRelDir) fromRelDir codec

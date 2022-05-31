@@ -48,6 +48,9 @@ validateResourceNameChar = \case
 resourceNameText :: ResourceName -> Text
 resourceNameText = unResourceName
 
+resourceNameString :: ResourceName -> String
+resourceNameString = T.unpack . resourceNameText
+
 parseResourceName :: Text -> Either String ResourceName
 parseResourceName = prettyValidate . ResourceName
 

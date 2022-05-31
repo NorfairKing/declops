@@ -66,7 +66,7 @@ instance HasCodec UUID where
 virtualBoxProvider ::
   Provider
     VirtualBoxSpecification
-    UUID
+    ()
     VirtualBoxOutput
 virtualBoxProvider =
   Provider
@@ -77,9 +77,9 @@ virtualBoxProvider =
       providerDestroy = destroyVirtualBox
     }
 
-queryVirtualBox :: ResourceName -> UUID -> P (QueryResult VirtualBoxOutput)
-queryVirtualBox _ uuid = do
-  mTups <- getVMInfo uuid
+queryVirtualBox :: ResourceName -> () -> P (QueryResult VirtualBoxOutput)
+queryVirtualBox resourceName () = do
+  mTups <- getVMInfo resourceName
   case mTups of
     Nothing -> pure $ QuerySuccess DoesNotExistRemotely
     Just VirtualBoxInfo {..} ->
@@ -94,18 +94,17 @@ queryVirtualBox _ uuid = do
 applyVirtualBox ::
   ResourceName ->
   VirtualBoxSpecification ->
-  ApplyContext UUID VirtualBoxOutput ->
-  P (ApplyResult UUID VirtualBoxOutput)
+  ApplyContext () VirtualBoxOutput ->
+  P (ApplyResult () VirtualBoxOutput)
 applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
       logDebugN "Creating a brand new VM."
-      (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder Nothing
+      (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
-      pure $ ApplySuccess uuid output
-    ExistsLocallyButNotRemotely uuid -> do
-      logDebugN $ T.pack $ unwords ["VM with this UUID vanished, creating a new one with the same uuid:", UUID.toString uuid]
-
+      pure $ ApplySuccess () output
+    ExistsLocallyButNotRemotely () -> do
+      logDebugN "VM is missing, creating a new one."
       -- Make sure there's no settings file in the way.
       predictedSettingsFile <- predictSettionsFile resourceName virtualBoxSpecificationBaseFolder
       settingsFileAlreadyExists <- doesFileExist predictedSettingsFile
@@ -113,9 +112,9 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
         logDebugN "Settings file already existed, even if the vm has vanished, so removing it."
         liftIO $ ignoringAbsence $ removeFile predictedSettingsFile
 
-      (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder (Just uuid)
+      (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
       let output = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
-      pure $ ApplySuccess newUUID output
+      pure $ ApplySuccess () output
     ExistsLocallyAndRemotely uuid output -> do
       logDebugN $
         T.pack $
@@ -123,75 +122,66 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
             [ "VM already exists, checking whether it is already deployed correctly:",
               show uuid
             ]
-      mVMInfo <- getVMInfo uuid
+      mVMInfo <- getVMInfo resourceName
       case mVMInfo of
         Nothing -> fail "Should have been able to find the VM info"
         Just VirtualBoxInfo {..} -> do
           if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
             then do
               logDebugN "VM is already deployed correctly, leaving it as-is."
-              pure $ ApplySuccess uuid output
+              pure $ ApplySuccess () output
             else do
               logDebugN "VM is deployed a different settings file, recreating it."
-              unregisterVirtualBox resourceName uuid
-              (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder Nothing
+              unregisterVirtualBox resourceName
+              (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
               let newOutput = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
-              pure $ ApplySuccess newUUID newOutput
+              pure $ ApplySuccess () newOutput
 
-checkVirtualBox :: ResourceName -> VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxOutput)
-checkVirtualBox _ VirtualBoxSpecification {..} uuid = do
-  mTups <- getVMInfo uuid
+checkVirtualBox :: ResourceName -> VirtualBoxSpecification -> () -> P (CheckResult VirtualBoxOutput)
+checkVirtualBox resourceName VirtualBoxSpecification {..} () = do
+  mTups <- getVMInfo resourceName
   case mTups of
-    Nothing -> fail $ unwords ["VM does not exist:", show uuid]
+    Nothing -> fail $ unwords ["VM does not exist:", show resourceName]
     Just VirtualBoxInfo {..} -> do
-      if virtualBoxInfoUUID == uuid
-        then do
-          if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
-            then
-              pure $
-                CheckSuccess $
-                  VirtualBoxOutput
-                    { virtualBoxOutputUUID = uuid,
-                      virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
-                    }
-            else
-              fail $
-                unlines
-                  [ "The settings file is not in the base folder",
-                    unwords
-                      [ "Settings file:",
-                        show virtualBoxInfoSettingsFile
-                      ],
-                    unwords
-                      [ "Base folder:",
-                        show virtualBoxSpecificationBaseFolder
-                      ]
-                  ]
+      if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
+        then
+          pure $
+            CheckSuccess $
+              VirtualBoxOutput
+                { virtualBoxOutputUUID = virtualBoxInfoUUID,
+                  virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
+                }
         else
           fail $
             unlines
-              [ "UUID does not match the reference:",
-                unwords ["reference:", show uuid],
-                unwords ["actual:", show virtualBoxInfoUUID]
+              [ "The settings file is not in the base folder",
+                unwords
+                  [ "Settings file:",
+                    show virtualBoxInfoSettingsFile
+                  ],
+                unwords
+                  [ "Base folder:",
+                    show virtualBoxSpecificationBaseFolder
+                  ]
               ]
 
-destroyVirtualBox :: ResourceName -> UUID -> P DestroyResult
-destroyVirtualBox resourceName uuid = do
-  mVmInfo <- getVMInfo uuid
+destroyVirtualBox :: ResourceName -> () -> P DestroyResult
+destroyVirtualBox resourceName () = do
+  mVmInfo <- getVMInfo resourceName
   case mVmInfo of
     Nothing -> pure DestroySuccess
     Just _ -> do
-      unregisterVirtualBox resourceName uuid
+      unregisterVirtualBox resourceName
       pure DestroySuccess
 
-unregisterVirtualBox :: ResourceName -> UUID -> P ()
-unregisterVirtualBox _ uuid = do
-  logDebugN $ T.pack $ unwords ["Unregistering virtualbox with uuid", UUID.toString uuid]
+unregisterVirtualBox :: ResourceName -> P ()
+unregisterVirtualBox resourceName = do
+  logDebugN $ T.pack $ unwords ["Unregistering virtualbox", show resourceName]
   pc <-
     liftIO $
       mkVBoxManageProcessConfig
         [ "unregistervm",
-          UUID.toString uuid,
+          resourceNameString resourceName,
           "--delete"
         ]
   logProcessConfig pc
@@ -200,13 +190,13 @@ unregisterVirtualBox _ uuid = do
     ExitSuccess -> pure ()
     ExitFailure c -> fail $ unwords ["VBoxManage unregister failed with exit code:", show c]
 
-getVMInfo :: UUID -> P (Maybe VirtualBoxInfo)
-getVMInfo uuid = do
+getVMInfo :: ResourceName -> P (Maybe VirtualBoxInfo)
+getVMInfo resourceName = do
   pc <-
     liftIO $
       mkVBoxManageProcessConfig
         [ "showvminfo",
-          UUID.toString uuid,
+          resourceNameString resourceName,
           "--details",
           "--machinereadable"
         ]
@@ -246,24 +236,19 @@ data VirtualBoxInfo = VirtualBoxInfo
   }
   deriving (Show, Eq, Generic)
 
-makeVirtualBox :: ResourceName -> Path Abs Dir -> Maybe UUID -> P (UUID, Path Abs File)
-makeVirtualBox resourceName baseFolder mUuid = do
+makeVirtualBox :: ResourceName -> Path Abs Dir -> P (UUID, Path Abs File)
+makeVirtualBox resourceName baseFolder = do
   logDebugN "Creating the VM settings file."
   let args =
-        concat
-          [ [ "createvm",
-              "--name",
-              T.unpack $ resourceNameText resourceName,
-              "--ostype",
-              "Linux_64",
-              "--basefolder",
-              fromAbsDir baseFolder,
-              "--register"
-            ],
-            case mUuid of
-              Nothing -> []
-              Just uuid -> ["--uuid", UUID.toString uuid]
-          ]
+        [ "createvm",
+          "--name",
+          T.unpack $ resourceNameText resourceName,
+          "--ostype",
+          "Linux_64",
+          "--basefolder",
+          fromAbsDir baseFolder,
+          "--register"
+        ]
   pc <- liftIO $ mkVBoxManageProcessConfig args
   logProcessConfig pc
   (ec, output) <- readProcessStdout pc
