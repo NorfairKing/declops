@@ -1,35 +1,72 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Declops.Provider.ResourceName where
 
 import Autodocodec
-import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey)
+import Control.Arrow (left)
+import Data.Aeson (FromJSON, FromJSONKey (..), FromJSONKeyFunction (..), ToJSON, ToJSONKey (..))
+import Data.Aeson.Types (toJSONKeyText)
+import Data.Char as Char
 import Data.Proxy
-import Data.String
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Validity
-import Data.Validity.Text ()
+import Data.Validity.Text
 import Database.Persist.Sqlite
 import GHC.Generics (Generic)
 
 newtype ResourceName = ResourceName {unResourceName :: Text}
   deriving stock (Generic)
-  deriving newtype (Show, Eq, Ord, IsString, FromJSONKey, ToJSONKey)
+  deriving newtype (Show, Eq, Ord)
   deriving (FromJSON, ToJSON) via (Autodocodec ResourceName)
 
-instance Validity ResourceName
+instance Validity ResourceName where
+  validate rn@(ResourceName t) =
+    mconcat
+      [ genericValidate rn,
+        declare "The resource name is not empty" $ not $ T.null t,
+        decorateText t validateResourceNameChar
+      ]
 
-instance HasCodec ResourceName where
-  codec = dimapCodec ResourceName unResourceName codec
-
-instance PersistField ResourceName where
-  toPersistValue = toPersistValue . unResourceName
-  fromPersistValue = fmap ResourceName . fromPersistValue
-
-instance PersistFieldSql ResourceName where
-  sqlType Proxy = sqlType (Proxy :: Proxy Text)
+validateResourceNameChar :: Char -> Validation
+validateResourceNameChar = \case
+  '-' -> valid
+  '_' -> valid
+  c ->
+    mconcat
+      [ declare "The character is printable" $ Char.isPrint c,
+        declare "The character is in ASCII" $ Char.isAscii c,
+        declare "The character is not a control char" $ not $ Char.isControl c,
+        declare "The character is not a space" $ not $ Char.isSpace c,
+        declare "The character is alpha numeric" $ Char.isAlphaNum c
+      ]
 
 resourceNameText :: ResourceName -> Text
 resourceNameText = unResourceName
+
+parseResourceName :: Text -> Either String ResourceName
+parseResourceName = prettyValidate . ResourceName
+
+instance FromJSONKey ResourceName where
+  fromJSONKey = FromJSONKeyTextParser $ \t ->
+    case parseResourceName t of
+      Left err -> fail err
+      Right r -> pure r
+
+instance ToJSONKey ResourceName where
+  toJSONKey = toJSONKeyText resourceNameText
+
+instance HasCodec ResourceName where
+  codec = bimapCodec parseResourceName unResourceName codec
+
+instance PersistField ResourceName where
+  toPersistValue = toPersistValue . resourceNameText
+  fromPersistValue pv = do
+    t <- fromPersistValue pv
+    left T.pack $ parseResourceName t
+
+instance PersistFieldSql ResourceName where
+  sqlType Proxy = sqlType (Proxy :: Proxy Text)

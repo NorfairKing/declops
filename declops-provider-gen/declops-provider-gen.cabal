@@ -16,7 +16,8 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      QuickCheck
+    , base >=4.7 && <5
     , declops-provider
     , genvalidity
     , genvalidity-text

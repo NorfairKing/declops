@@ -10,6 +10,7 @@ library:
     - declops-provider
     - genvalidity
     - genvalidity-text
+    - QuickCheck
 
 tests:
   declops-provider-test:
