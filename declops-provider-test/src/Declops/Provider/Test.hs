@@ -126,13 +126,14 @@ localProviderSpec provider genReference genInput = do
             shouldBeValid output
 
       it "can create two of the same resources and have them be different" $ \i ->
-        forAllValid $ \resourceName ->
-          forAll (genInput i) $ \input -> do
-            applyResult1 <- apply resourceName input DoesNotExistLocallyNorRemotely
-            (reference1, _) <- requireApplySuccess applyResult1
-            applyResult2 <- apply resourceName input DoesNotExistLocallyNorRemotely
-            (reference2, _) <- requireApplySuccess applyResult2
-            reference1 `shouldNotBe` reference2
+        forAllValid $ \resourceName1 ->
+          forAllValid $ \resourceName2 ->
+            forAll (genInput i) $ \input -> do
+              applyResult1 <- apply resourceName1 input DoesNotExistLocallyNorRemotely
+              (reference1, _) <- requireApplySuccess applyResult1
+              applyResult2 <- apply resourceName2 input DoesNotExistLocallyNorRemotely
+              (reference2, _) <- requireApplySuccess applyResult2
+              reference1 `shouldNotBe` reference2
 
       it "can query the resource that was just applied from scratch" $ \i ->
         forAllValid $ \resourceName ->
