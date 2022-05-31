@@ -72,6 +72,6 @@ declopsDestroyResults = do
                   logDebugN "Destroy: Done"
                   pure destroyResult
               case result of
-                DestroyFailure err -> logErrorN $ T.pack $ unlines ["Failed to destroy:", err]
+                DestroyFailure err -> logErrorN $ T.pack $ unlines ["Failed to destroy:", displayException err]
                 DestroySuccess -> logInfoN "Destroyed successfully."
               pure (ResourceId providerName resourceName, result)

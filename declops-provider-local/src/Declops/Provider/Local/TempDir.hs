@@ -103,21 +103,20 @@ applyTempDir TempDirSpecification {..} applyContext = liftIO $ do
 checkTempDir :: TempDirSpecification -> Path Abs Dir -> P (CheckResult TempDirOutput)
 checkTempDir TempDirSpecification {..} path = liftIO $ do
   exists <- doesDirExist path
-  pure $
-    if exists
-      then case stripProperPrefix tempDirSpecificationBase path of
-        Nothing -> CheckFailure "Directory had the wrong base."
-        Just subdir ->
-          if T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
-            then CheckSuccess TempDirOutput {tempDirOutputPath = path}
-            else
-              CheckFailure $
-                unlines
-                  [ "Directory did not have the right template:",
-                    unwords ["expected:  ", T.unpack tempDirSpecificationTemplate],
-                    unwords ["actual dir:", fromAbsDir path]
-                  ]
-      else CheckFailure "Directory does not exist."
+  if exists
+    then case stripProperPrefix tempDirSpecificationBase path of
+      Nothing -> fail "Directory had the wrong base."
+      Just subdir ->
+        if T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
+          then pure $ CheckSuccess TempDirOutput {tempDirOutputPath = path}
+          else
+            fail $
+              unlines
+                [ "Directory did not have the right template:",
+                  unwords ["expected:  ", T.unpack tempDirSpecificationTemplate],
+                  unwords ["actual dir:", fromAbsDir path]
+                ]
+    else fail "Directory does not exist."
 
 destroyTempDir :: Path Abs Dir -> P DestroyResult
 destroyTempDir path = liftIO $ do

@@ -111,7 +111,7 @@ runProviderQuery ::
   reference ->
   LoggingT IO (QueryResult output)
 runProviderQuery provider reference =
-  runPCatchingExceptionsWith QueryFailure (QueryFailure . QueryException . displayException) $
+  runPCatchingExceptionsWith QueryFailure $
     providerQuery provider reference
 
 runProviderApply ::
@@ -120,7 +120,7 @@ runProviderApply ::
   ApplyContext reference output ->
   LoggingT IO (ApplyResult reference output)
 runProviderApply provider specification applyContext =
-  runPCatchingExceptionsWith ApplyFailure (ApplyFailure . ApplyException . displayException) $
+  runPCatchingExceptionsWith ApplyFailure $
     providerApply provider specification applyContext
 
 runProviderCheck ::
@@ -129,7 +129,7 @@ runProviderCheck ::
   reference ->
   LoggingT IO (CheckResult output)
 runProviderCheck provider specification reference =
-  unP $
+  runPCatchingExceptionsWith CheckFailure $
     providerCheck provider specification reference
 
 runProviderDestroy ::
@@ -137,7 +137,7 @@ runProviderDestroy ::
   reference ->
   LoggingT IO DestroyResult
 runProviderDestroy provider reference =
-  unP $
+  runPCatchingExceptionsWith DestroyFailure $
     providerDestroy provider reference
 
 newtype P a = P {unP :: LoggingT IO a}
@@ -146,19 +146,21 @@ newtype P a = P {unP :: LoggingT IO a}
 throwP :: Exception e => e -> P a
 throwP = P . liftIO . throwIO
 
-runPCatchingExceptionsWith :: Exception specificException => (specificException -> a) -> (forall e. Exception e => e -> a) -> P a -> LoggingT IO a
-runPCatchingExceptionsWith specificWrapper wrapper func =
-  unP func
-    `catches` exceptionHandlersWith specificWrapper wrapper
+instance MonadFail P where
+  fail = throwP . ProviderException
 
-exceptionHandlersWith :: (MonadIO m, Exception specificException) => (specificException -> a) -> (forall e. Exception e => e -> a) -> [Handler m a]
-exceptionHandlersWith specificWrapper wrapper =
+runPCatchingExceptionsWith :: (ProviderException -> a) -> P a -> LoggingT IO a
+runPCatchingExceptionsWith wrapper func =
+  unP func `catches` exceptionHandlersWith wrapper
+
+exceptionHandlersWith :: MonadIO m => (ProviderException -> a) -> [Handler m a]
+exceptionHandlersWith wrapper =
   [ -- Re-throw AsyncException, otherwise execution will not terminate on SIGINT (ctrl-c).
     Handler (\e -> throwIO (e :: AsyncException)),
-    -- Catch the specific exception
-    Handler (\e -> return (specificWrapper e)),
-    -- Catch all the rest
-    Handler (\e -> return $ wrapper (e :: SomeException))
+    -- Catch ProviderExceptions specifically
+    Handler (\e -> return (wrapper e)),
+    -- Catch all the rest as well
+    Handler (\e -> return $ wrapper (ProviderException (displayException (e :: SomeException))))
   ]
 
 instance Validity (Provider specification reference output) where
@@ -178,14 +180,8 @@ type JSONQueryResult = QueryResult JSON.Value
 
 data QueryResult output
   = QuerySuccess !(RemoteState output)
-  | QueryFailure !QueryException
+  | QueryFailure !ProviderException
   deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
-
-newtype QueryException = QueryException {unQueryException :: String}
-  deriving stock (Generic)
-  deriving newtype (Show, Read, Eq, IsString)
-
-instance Exception QueryException
 
 type JSONApplyContext = ApplyContext JSON.Value JSON.Value
 
@@ -217,14 +213,8 @@ type JSONApplyResult = ApplyResult JSON.Value JSON.Value
 
 data ApplyResult reference output
   = ApplySuccess !reference !output
-  | ApplyFailure !ApplyException
+  | ApplyFailure !ProviderException
   deriving (Show, Eq, Generic)
-
-newtype ApplyException = ApplyException {unApplyException :: String}
-  deriving stock (Generic)
-  deriving newtype (Show, Read, Eq, IsString)
-
-instance Exception ApplyException
 
 dimapApplyResult ::
   (reference1 -> reference2) ->
@@ -252,7 +242,7 @@ type JSONCheckResult = CheckResult JSON.Value
 
 data CheckResult output
   = CheckSuccess !output
-  | CheckFailure !String
+  | CheckFailure !ProviderException
   deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 checkFailed :: CheckResult output -> Bool
@@ -262,10 +252,17 @@ checkFailed = \case
 
 data DestroyResult
   = DestroySuccess
-  | DestroyFailure !String
+  | DestroyFailure !ProviderException
   deriving (Show, Eq, Generic)
 
 destroyFailed :: DestroyResult -> Bool
 destroyFailed = \case
   DestroySuccess -> False
   DestroyFailure _ -> True
+
+newtype ProviderException = ProviderException {unProviderException :: String}
+  deriving stock (Generic)
+  deriving newtype (Show, Read, Eq, IsString)
+
+instance Exception ProviderException where
+  displayException = unProviderException

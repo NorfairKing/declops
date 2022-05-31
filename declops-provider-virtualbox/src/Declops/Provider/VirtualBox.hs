@@ -141,7 +141,7 @@ checkVirtualBox :: VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxO
 checkVirtualBox VirtualBoxSpecification {..} uuid = do
   mTups <- getVMInfo uuid
   case mTups of
-    Nothing -> pure $ CheckFailure $ unwords ["VM does not exist:", show uuid]
+    Nothing -> fail $ unwords ["VM does not exist:", show uuid]
     Just VirtualBoxInfo {..} -> do
       if virtualBoxInfoUUID == uuid
         then do
@@ -154,27 +154,25 @@ checkVirtualBox VirtualBoxSpecification {..} uuid = do
                       virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
                     }
             else
-              pure $
-                CheckFailure $
-                  unlines
-                    [ "The settings file is not in the base folder",
-                      unwords
-                        [ "Settings file:",
-                          show virtualBoxInfoSettingsFile
-                        ],
-                      unwords
-                        [ "Base folder:",
-                          show virtualBoxSpecificationBaseFolder
-                        ]
-                    ]
+              fail $
+                unlines
+                  [ "The settings file is not in the base folder",
+                    unwords
+                      [ "Settings file:",
+                        show virtualBoxInfoSettingsFile
+                      ],
+                    unwords
+                      [ "Base folder:",
+                        show virtualBoxSpecificationBaseFolder
+                      ]
+                  ]
         else
-          pure $
-            CheckFailure $
-              unlines
-                [ "UUID does not match the reference:",
-                  unwords ["reference:", show uuid],
-                  unwords ["actual:", show virtualBoxInfoUUID]
-                ]
+          fail $
+            unlines
+              [ "UUID does not match the reference:",
+                unwords ["reference:", show uuid],
+                unwords ["actual:", show virtualBoxInfoUUID]
+              ]
 
 destroyVirtualBox :: UUID -> P DestroyResult
 destroyVirtualBox uuid = do
@@ -191,7 +189,7 @@ destroyVirtualBox uuid = do
   ec <- runProcess pc
   case ec of
     ExitSuccess -> pure DestroySuccess
-    ExitFailure c -> pure $ DestroyFailure $ unwords ["VBoxManage unregister failed with exit code:", show c]
+    ExitFailure c -> fail $ unwords ["VBoxManage unregister failed with exit code:", show c]
 
 getVMInfo :: UUID -> P (Maybe VirtualBoxInfo)
 getVMInfo uuid = do
@@ -217,7 +215,7 @@ getVMInfo uuid = do
       let requireVal key = case lookup key tups of
             Nothing ->
               throwP $
-                ApplyException $ -- TODO
+                ProviderException $
                   unlines $
                     unwords ["Expected to have found this key in the vminfo output:", show key] :
                     map show tups
@@ -260,7 +258,7 @@ makeVirtualBox name baseFolder mUuid = do
   logProcessConfig pc
   (ec, output) <- readProcessStdout pc
   case ec of
-    ExitFailure c -> throwP $ ApplyException $ unwords ["createvm failed with exit code:", show c]
+    ExitFailure c -> fail $ unwords ["createvm failed with exit code:", show c]
     ExitSuccess -> do
       let outputText = TE.decodeUtf8With TE.lenientDecode $ LB.toStrict output
       logDebugN $ T.pack $ unlines ["Read stdout:", T.unpack outputText]
@@ -270,16 +268,15 @@ makeVirtualBox name baseFolder mUuid = do
               _ -> Nothing
       let requireVal key = case lookup key tups of
             Nothing ->
-              throwP $
-                ApplyException $
-                  unlines $
-                    unwords ["Expected to have found this key in the createvm output:", show key] :
-                    map show tups
+              fail $
+                unlines $
+                  unwords ["Expected to have found this key in the createvm output:", show key] :
+                  map show tups
             Just val -> pure val
 
       uuidVal <- requireVal "UUID"
       uuid <- case UUID.fromText uuidVal of
-        Nothing -> throwP $ ApplyException $ unwords ["Could not parse uuid:", show uuidVal]
+        Nothing -> fail $ unwords ["Could not parse uuid:", show uuidVal]
         Just u -> pure u
       logDebugN $ T.pack $ unwords ["VM was assigned uuid: ", show uuid]
       settingsFileVal <- requireVal "Settings file"

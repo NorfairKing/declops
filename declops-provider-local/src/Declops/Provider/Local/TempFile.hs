@@ -115,31 +115,31 @@ checkTempFile TempFileSpecification {..} path = liftIO $ do
       if T.unpack tempFileSpecificationTemplate `isInfixOf` fromRelFile subfile
         then do
           mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile path
-          pure $ case mContents of
-            Nothing -> CheckFailure "File does not exist."
+          case mContents of
+            Nothing -> fail "File does not exist."
             Just contents ->
               if contents == tempFileSpecificationContents
                 then
-                  CheckSuccess
-                    TempFileOutput
-                      { tempFileOutputPath = path,
-                        tempFileOutputContents = contents
-                      }
+                  pure $
+                    CheckSuccess
+                      TempFileOutput
+                        { tempFileOutputPath = path,
+                          tempFileOutputContents = contents
+                        }
                 else
-                  CheckFailure $
+                  fail $
                     unlines
                       [ "File did not have the right contents:",
                         unwords ["expected:", show tempFileSpecificationContents],
                         unwords ["actual:  ", show contents]
                       ]
         else
-          pure $
-            CheckFailure $
-              unlines
-                [ "File did not have the right template:",
-                  unwords ["expected:   ", T.unpack tempFileSpecificationTemplate],
-                  unwords ["actual file:", fromAbsFile path]
-                ]
+          fail $
+            unlines
+              [ "File did not have the right template:",
+                unwords ["expected:   ", T.unpack tempFileSpecificationTemplate],
+                unwords ["actual file:", fromAbsFile path]
+              ]
 
 destroyTempFile :: Path Abs File -> P DestroyResult
 destroyTempFile path = liftIO $ do

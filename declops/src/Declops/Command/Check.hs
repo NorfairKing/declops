@@ -86,10 +86,11 @@ declopsCheckResults = do
             logWarnN "Not checking because some dependency failed to check."
             pure $
               CheckFailure $
-                unwords
-                  [ "Could not check because a dependency failed to check:",
-                    T.unpack $ renderResourceId resourceId
-                  ]
+                ProviderException $
+                  unwords
+                    [ "Could not check because a dependency failed to check:",
+                      T.unpack $ renderResourceId resourceId
+                    ]
           Just dependencyOutputs -> do
             specification <- nixEvalResourceSpecification dependencyOutputs resourceId
             case mReference of
@@ -102,10 +103,11 @@ declopsCheckResults = do
                       ]
                 pure $
                   CheckFailure $
-                    unwords
-                      [ "Could not check because we had no local reference:",
-                        T.unpack $ renderResourceId resourceId
-                      ]
+                    ProviderException $
+                      unwords
+                        [ "Could not check because we had no local reference:",
+                          T.unpack $ renderResourceId resourceId
+                        ]
               ExistsLocally reference -> do
                 logInfoN "Checking"
                 logDebugN "Check: Starting"
@@ -126,7 +128,7 @@ declopsCheckResults = do
               T.pack $
                 unlines
                   [ "Check failed:",
-                    err
+                    displayException err
                   ]
           CheckSuccess _ -> logInfoN "Check succeeded."
 

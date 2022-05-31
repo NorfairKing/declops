@@ -33,7 +33,7 @@ declopsQuery = do
       )
       (M.toList results)
 
-errOrApplyContextChunk :: Either QueryException (ApplyContext reference output) -> Chunk
+errOrApplyContextChunk :: Either ProviderException (ApplyContext reference output) -> Chunk
 errOrApplyContextChunk = \case
   Left err -> fore red "error"
   Right ac -> applyContextChunk ac
@@ -44,15 +44,14 @@ applyContextChunk = \case
   ExistsLocallyButNotRemotely _ -> fore red "missing"
   ExistsLocallyAndRemotely _ _ -> fore green "exists"
 
-declopsQueryResults :: C (Map ResourceId (Either QueryException JSONApplyContext))
+declopsQueryResults :: C (Map ResourceId (Either ProviderException JSONApplyContext))
 declopsQueryResults = do
   DependenciesSpecification dependenciesMap <- nixEvalGraph
-
   M.map (\(_, _, ac) -> ac) <$> getApplyContexts dependenciesMap
 
 getApplyContexts ::
   Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) ->
-  C (Map ResourceId (JSONProvider, [ResourceId], Either QueryException JSONApplyContext))
+  C (Map ResourceId (JSONProvider, [ResourceId], Either ProviderException JSONApplyContext))
 getApplyContexts dependenciesWithProviders =
   fmap (M.fromList . concat) $
     forConcurrently (M.toList dependenciesWithProviders) $ \(_, (provider@Provider {..}, resources)) ->
@@ -77,7 +76,7 @@ getApplyContexts dependenciesWithProviders =
                         T.pack $
                           unlines
                             [ "Failed to query:",
-                              unQueryException err
+                              displayException err
                             ]
                       pure $ Left err
                     QuerySuccess remoteState ->

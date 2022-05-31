@@ -56,7 +56,7 @@ declopsApplyResults = do
 
   applyContexts <- forM errOrApplyContexts $ \(provider, dependencies, errOrApplyContext) -> case errOrApplyContext of
     -- TODO are we sure we want to die here?
-    Left err -> liftIO $ die $ unwords ["Not applying because a query failed:", unQueryException err]
+    Left err -> liftIO $ die $ unwords ["Not applying because a query failed:", displayException err]
     Right applyContext -> pure (provider, dependencies, applyContext)
 
   outputVars <- forM applyContexts $ const newEmptyMVar
@@ -91,7 +91,7 @@ declopsApplyResults = do
             logWarnN "Not applying because some dependency failed to apply."
             pure $
               ApplyFailure $
-                ApplyException $
+                ProviderException $
                   unwords
                     [ "Could not apply because a dependency failed to apply:",
                       T.unpack $ renderResourceId resourceId
@@ -125,7 +125,7 @@ declopsApplyResults = do
               T.pack $
                 unlines
                   [ "Failed to apply:",
-                    unApplyException err
+                    displayException err
                   ]
           ApplySuccess reference output -> do
             logInfoN $
