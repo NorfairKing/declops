@@ -9,8 +9,9 @@ nixosTest (
     machine = {
       environment.systemPackages = with pkgs; [
         declops
-        nix
         git
+        nix
+        virtualbox # TODO only make this available if it's necessary?
       ];
     };
     testScript = ''
