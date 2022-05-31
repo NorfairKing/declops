@@ -66,8 +66,8 @@ tempDirProvider =
       providerDestroy = destroyTempDir
     }
 
-queryTempDir :: Path Abs Dir -> P (QueryResult TempDirOutput)
-queryTempDir path = liftIO $ do
+queryTempDir :: ResourceName -> Path Abs Dir -> P (QueryResult TempDirOutput)
+queryTempDir _ path = liftIO $ do
   exists <- doesDirExist path
   let output = TempDirOutput {tempDirOutputPath = path}
   pure $
@@ -76,8 +76,8 @@ queryTempDir path = liftIO $ do
         then ExistsRemotely output
         else DoesNotExistRemotely
 
-applyTempDir :: TempDirSpecification -> ApplyContext (Path Abs Dir) TempDirOutput -> P (ApplyResult (Path Abs Dir) TempDirOutput)
-applyTempDir TempDirSpecification {..} applyContext = liftIO $ do
+applyTempDir :: ResourceName -> TempDirSpecification -> ApplyContext (Path Abs Dir) TempDirOutput -> P (ApplyResult (Path Abs Dir) TempDirOutput)
+applyTempDir _ TempDirSpecification {..} applyContext = liftIO $ do
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
       tdir <- makeTempDir tempDirSpecificationBase tempDirSpecificationTemplate
@@ -100,8 +100,8 @@ applyTempDir TempDirSpecification {..} applyContext = liftIO $ do
           let newOutput = TempDirOutput {tempDirOutputPath = tdir}
           pure $ ApplySuccess tdir newOutput
 
-checkTempDir :: TempDirSpecification -> Path Abs Dir -> P (CheckResult TempDirOutput)
-checkTempDir TempDirSpecification {..} path = liftIO $ do
+checkTempDir :: ResourceName -> TempDirSpecification -> Path Abs Dir -> P (CheckResult TempDirOutput)
+checkTempDir _ TempDirSpecification {..} path = liftIO $ do
   exists <- doesDirExist path
   if exists
     then case stripProperPrefix tempDirSpecificationBase path of
@@ -118,8 +118,8 @@ checkTempDir TempDirSpecification {..} path = liftIO $ do
                 ]
     else fail "Directory does not exist."
 
-destroyTempDir :: Path Abs Dir -> P DestroyResult
-destroyTempDir path = liftIO $ do
+destroyTempDir :: ResourceName -> Path Abs Dir -> P DestroyResult
+destroyTempDir _ path = liftIO $ do
   removeTempDir path
   pure DestroySuccess
 

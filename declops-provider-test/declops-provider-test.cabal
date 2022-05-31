@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.7.
+-- This file has been generated from package.yaml by hpack version 0.34.5.
 --
 -- see: https://github.com/sol/hpack
 
@@ -24,6 +24,7 @@ library
     , autodocodec-yaml
     , base >=4.7 && <5
     , declops-provider
+    , declops-provider-gen
     , genvalidity-path
     , genvalidity-sydtest
     , genvalidity-sydtest-aeson

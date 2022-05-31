@@ -9,6 +9,8 @@
 
 module Declops.Provider
   ( module Declops.Provider,
+    module Declops.Provider.ProviderName,
+    module Declops.Provider.ResourceName,
     liftIO,
     module Control.Monad.Logger,
   )
@@ -25,6 +27,7 @@ import Data.Functor.Identity
 import Data.String
 import Data.Validity
 import Declops.Provider.ProviderName
+import Declops.Provider.ResourceName
 import GHC.Generics (Generic)
 import Path
 import System.Exit
@@ -48,21 +51,21 @@ toJSONProvider provider =
         Right result -> pure result
    in Provider
         { providerName = providerName provider,
-          providerQuery = \referenceJSON -> do
+          providerQuery = \resourceName referenceJSON -> do
             reference <- parseJSONOrErr referenceJSON
-            fmap toJSON <$> providerQuery provider reference,
-          providerApply = \specificationJSON applyContextJSON -> do
+            fmap toJSON <$> providerQuery provider resourceName reference,
+          providerApply = \resourceName specificationJSON applyContextJSON -> do
             specification <- parseJSONOrErr specificationJSON
             applyContext <- bimapApplyContext parseJSONOrErr parseJSONOrErr applyContextJSON
             dimapApplyResult toJSON toJSON
-              <$> providerApply provider specification applyContext,
-          providerCheck = \specificationJSON referenceJSON -> do
+              <$> providerApply provider resourceName specification applyContext,
+          providerCheck = \resourceName specificationJSON referenceJSON -> do
             reference <- parseJSONOrErr referenceJSON
             specification <- parseJSONOrErr specificationJSON
-            fmap toJSON <$> providerCheck provider specification reference,
-          providerDestroy = \referenceJSON -> do
+            fmap toJSON <$> providerCheck provider resourceName specification reference,
+          providerDestroy = \resourceName referenceJSON -> do
             reference <- parseJSONOrErr referenceJSON
-            providerDestroy provider reference
+            providerDestroy provider resourceName reference
         }
 
 instance HasCodec (Path Rel Dir) where
@@ -99,46 +102,50 @@ instance HasCodec (Path Abs File) where
 -- Getting them all right is not an easy thing to do, which is why we provide a test suite.
 data Provider specification reference output = Provider
   { providerName :: !ProviderName,
-    providerQuery :: !(reference -> P (QueryResult output)),
-    providerApply :: !(specification -> ApplyContext reference output -> P (ApplyResult reference output)),
-    providerCheck :: !(specification -> reference -> P (CheckResult output)),
-    providerDestroy :: !(reference -> P DestroyResult)
+    providerQuery :: !(ResourceName -> reference -> P (QueryResult output)),
+    providerApply :: !(ResourceName -> specification -> ApplyContext reference output -> P (ApplyResult reference output)),
+    providerCheck :: !(ResourceName -> specification -> reference -> P (CheckResult output)),
+    providerDestroy :: !(ResourceName -> reference -> P DestroyResult)
   }
   deriving (Generic)
 
 runProviderQuery ::
   Provider specification reference output ->
+  ResourceName ->
   reference ->
   LoggingT IO (QueryResult output)
-runProviderQuery provider reference =
+runProviderQuery provider resourceName reference =
   runPCatchingExceptionsWith QueryFailure $
-    providerQuery provider reference
+    providerQuery provider resourceName reference
 
 runProviderApply ::
   Provider specification reference output ->
+  ResourceName ->
   specification ->
   ApplyContext reference output ->
   LoggingT IO (ApplyResult reference output)
-runProviderApply provider specification applyContext =
+runProviderApply provider resourceName specification applyContext =
   runPCatchingExceptionsWith ApplyFailure $
-    providerApply provider specification applyContext
+    providerApply provider resourceName specification applyContext
 
 runProviderCheck ::
   Provider specification reference output ->
+  ResourceName ->
   specification ->
   reference ->
   LoggingT IO (CheckResult output)
-runProviderCheck provider specification reference =
+runProviderCheck provider resourceName specification reference =
   runPCatchingExceptionsWith CheckFailure $
-    providerCheck provider specification reference
+    providerCheck provider resourceName specification reference
 
 runProviderDestroy ::
   Provider specification reference output ->
+  ResourceName ->
   reference ->
   LoggingT IO DestroyResult
-runProviderDestroy provider reference =
+runProviderDestroy provider resourceName reference =
   runPCatchingExceptionsWith DestroyFailure $
-    providerDestroy provider reference
+    providerDestroy provider resourceName reference
 
 newtype P a = P {unP :: LoggingT IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadLogger, MonadLoggerIO)

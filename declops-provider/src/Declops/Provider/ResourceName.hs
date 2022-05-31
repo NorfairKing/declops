@@ -30,3 +30,6 @@ instance PersistField ResourceName where
 
 instance PersistFieldSql ResourceName where
   sqlType Proxy = sqlType (Proxy :: Proxy Text)
+
+resourceNameText :: ResourceName -> Text
+resourceNameText = unResourceName

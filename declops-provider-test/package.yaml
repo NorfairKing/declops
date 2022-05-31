@@ -13,6 +13,7 @@ library:
     - autodocodec
     - autodocodec-yaml
     - declops-provider
+    - declops-provider-gen
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-sydtest-aeson
