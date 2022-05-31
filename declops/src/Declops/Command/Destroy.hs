@@ -66,7 +66,7 @@ declopsDestroyResults = do
                 Just (Entity resourceId resourceReference) -> do
                   logInfoN "Destroying."
                   logDebugN "Destroy: Starting"
-                  destroyResult <- lift $ runProviderDestroy provider (resourceReferenceReference resourceReference)
+                  destroyResult <- lift $ runProviderDestroy provider resourceName (resourceReferenceReference resourceReference)
                   logDebugN "Deleting local reference."
                   runDB $ delete resourceId
                   logDebugN "Destroy: Done"

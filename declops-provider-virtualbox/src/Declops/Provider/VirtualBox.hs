@@ -102,7 +102,7 @@ applyVirtualBox ::
   VirtualBoxSpecification ->
   ApplyContext UUID VirtualBoxOutput ->
   P (ApplyResult UUID VirtualBoxOutput)
-applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
+applyVirtualBox resourceName specification@VirtualBoxSpecification {..} applyContext = do
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
       logDebugN "Creating a brand new VM."
@@ -129,7 +129,20 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
             [ "VM already exists, checking whether it is already deployed correctly:",
               show uuid
             ]
-      pure $ ApplySuccess uuid output
+      mVMInfo <- getVMInfo uuid
+      case mVMInfo of
+        Nothing -> fail "Should have been able to find the VM info"
+        Just VirtualBoxInfo {..} -> do
+          if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
+            then do
+              logDebugN "VM is already deployed correctly, leaving it as-is."
+              pure $ ApplySuccess uuid output
+            else do
+              logDebugN "VM is deployed a different settings file, recreating it."
+              unregisterVirtualBox resourceName uuid
+              (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder Nothing
+              let newOutput = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
+              pure $ ApplySuccess uuid newOutput
 
 checkVirtualBox :: ResourceName -> VirtualBoxSpecification -> UUID -> P (CheckResult VirtualBoxOutput)
 checkVirtualBox resourceName VirtualBoxSpecification {..} uuid = do
@@ -170,7 +183,14 @@ checkVirtualBox resourceName VirtualBoxSpecification {..} uuid = do
 
 destroyVirtualBox :: ResourceName -> UUID -> P DestroyResult
 destroyVirtualBox resourceName uuid = do
-  logDebugN "Creating the VM settings file."
+  mVmInfo <- getVMInfo uuid
+  case mVmInfo of
+    Nothing -> pure DestroySuccess
+    Just _ -> unregisterVirtualBox resourceName uuid
+
+unregisterVirtualBox :: ResourceName -> UUID -> P DestroyResult
+unregisterVirtualBox resourceName uuid = do
+  logDebugN $ T.pack $ unwords ["Unregistering virtualbox with uuid", UUID.toString uuid]
   let pc =
         proc
           "VBoxManage"

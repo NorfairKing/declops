@@ -111,7 +111,7 @@ declopsCheckResults = do
               ExistsLocally reference -> do
                 logInfoN "Checking"
                 logDebugN "Check: Starting"
-                result <- lift $ runProviderCheck provider specification reference
+                result <- lift $ runProviderCheck provider (resourceIdResource resourceId) specification reference
                 logDebugN "Check: Done"
                 pure result
 

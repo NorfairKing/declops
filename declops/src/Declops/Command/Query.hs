@@ -68,7 +68,7 @@ getApplyContexts dependenciesWithProviders =
                   logInfoN "Querying the current state."
                   let reference = resourceReferenceReference resourceReference
                   logDebugN "Query: Starting"
-                  queryResult <- lift $ runProviderQuery provider reference
+                  queryResult <- lift $ runProviderQuery provider resourceName reference
                   logDebugN "Query: Done"
                   case queryResult of
                     QueryFailure err -> do

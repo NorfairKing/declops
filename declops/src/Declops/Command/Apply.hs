@@ -108,7 +108,7 @@ declopsApplyResults = do
                   ]
 
             logDebugN "Apply: Starting"
-            result <- lift $ runProviderApply provider specification applyContext
+            result <- lift $ runProviderApply provider (resourceIdResource resourceId) specification applyContext
             logDebugN "Apply: Done"
             pure result
 
