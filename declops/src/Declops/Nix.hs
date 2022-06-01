@@ -19,6 +19,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Maybe
 import qualified Data.Text as T
 import Data.Validity
 import Declops.DB
@@ -138,6 +139,29 @@ instance Validity DependenciesSpecification where
               )
               (M.toList dependenciesMap)
       ]
+
+reverseDependenciesSpecification :: DependenciesSpecification -> DependenciesSpecification
+reverseDependenciesSpecification (DependenciesSpecification m) = DependenciesSpecification $ go m
+  where
+    go :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) -> Map ProviderName (JSONProvider, Map ResourceName [ResourceId])
+    go = M.mapWithKey goProvider
+    goProvider ::
+      ProviderName ->
+      (JSONProvider, Map ResourceName [ResourceId]) ->
+      (JSONProvider, Map ResourceName [ResourceId])
+    goProvider pn (provider, resources) = (provider, M.mapWithKey (goResource pn) resources)
+    goResource :: ProviderName -> ResourceName -> [ResourceId] -> [ResourceId]
+    goResource pn rn _ =
+      concatMap
+        ( \(providerName, (_, resources)) ->
+            mapMaybe
+              ( \(resourceName, dependencies) ->
+                  let isReverseDependency = ResourceId pn rn `elem` dependencies
+                   in if isReverseDependency then Just $ ResourceId providerName resourceName else Nothing
+              )
+              (M.toList resources)
+        )
+        (M.toList m)
 
 -- For printing
 removeProviders :: DependenciesSpecification -> Map ProviderName (Map ResourceName [ResourceId])

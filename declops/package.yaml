@@ -69,8 +69,10 @@ tests:
     - declops-provider
     - declops-provider-gen
     - genvalidity-aeson
+    - genvalidity-containers
     - genvalidity-path
     - genvalidity-sydtest
+    - genvalidity-sydtest-aeson
     - genvalidity-sydtest-persistent
     - genvalidity-text
     - monad-logger
