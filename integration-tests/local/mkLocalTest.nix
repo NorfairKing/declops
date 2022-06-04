@@ -11,10 +11,11 @@ nixosTest (
         declops
         git
         nix
-        virtualbox # TODO only make this available if it's necessary?
+        virtualbox # TODO only make virtualbox available if it's necessary?
       ];
       virtualisation.virtualbox.host = {
         enable = true;
+        enableExtensionPack = true;
       };
     };
     testScript = ''

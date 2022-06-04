@@ -72,7 +72,7 @@ in
       "declops-provider-gen" = declopsPkg "declops-provider-gen";
       "declops-provider-local" = declopsPkg "declops-provider-local";
       "declops-provider-test" = declopsPkg "declops-provider-test";
-      "declops-provider-virtualbox" = addBuildDepend (declopsPkg "declops-provider-virtualbox") final.virtualbox;
+      "declops-provider-virtualbox" = declopsPkg "declops-provider-virtualbox");
     };
 
   declopsReleasePackages = mapAttrs (_: pkg: justStaticExecutables (doCheck pkg)) final.declopsHaskellPackages;
