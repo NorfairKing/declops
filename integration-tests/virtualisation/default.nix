@@ -3,14 +3,14 @@
 }:
 
 let
-  mkLocalTest = pkgs.callPackage ./mkLocalTest.nix { };
+  mkVirtualisationTestScript = pkgs.callPackage ./mkVirtualisationTestScript.nix { };
   testDirEntries = builtins.readDir ./deployments;
   individualTests = pkgs.lib.mapAttrs'
     (path: _:
       let name = builtins.baseNameOf (pkgs.lib.removeSuffix ".nix" path);
       in
       pkgs.lib.nameValuePair name
-        (mkLocalTest {
+        (mkVirtualisationTestScript {
           inherit name;
           deployment = ./deployments + "/${path}";
         }))
@@ -20,7 +20,7 @@ let
   allTests =
     pkgs.symlinkJoin
       {
-        name = "declops-local-integration-tests";
+        name = "declops-virtualisation-integration-tests";
         paths = builtins.attrValues individualTests;
       };
 in

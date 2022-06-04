@@ -5,18 +5,13 @@
 }:
 nixosTest (
   { lib, pkgs, ... }: {
-    name = "declops-integration-test-${name}";
+    name = "declops-local-integration-test-${name}";
     machine = {
       environment.systemPackages = with pkgs; [
         declops
         git
         nix
-        virtualbox # TODO only make virtualbox available if it's necessary?
       ];
-      virtualisation.virtualbox.host = {
-        enable = true;
-        enableExtensionPack = true;
-      };
     };
     testScript = ''
       machine.start()
