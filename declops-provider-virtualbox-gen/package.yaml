@@ -1,0 +1,47 @@
+name: declops-provider-virtualbox-gen
+version: 0.0.0.0
+
+extra-source-files:
+- test_resources/**/*
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  build-tools: autoexporter
+  dependencies:
+    - QuickCheck
+    - declops-provider-virtualbox
+    - genvalidity
+    - genvalidity-path
+    - genvalidity-sydtest
+    - genvalidity-text
+    - genvalidity-uuid
+
+tests:
+  declops-provider-virtualbox-test:
+    main: Spec.hs
+    build-tools: sydtest-discover
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - QuickCheck
+    - aeson
+    - autodocodec
+    - bytestring
+    - declops-provider-test
+    - declops-provider-virtualbox
+    - genvalidity-path
+    - genvalidity-sydtest
+    - genvalidity-text
+    - genvalidity-uuid
+    - path
+    - path-io
+    - sydtest
+    - text
+    - typed-process
+    - uuid
