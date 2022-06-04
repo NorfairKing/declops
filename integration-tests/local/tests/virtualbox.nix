@@ -8,6 +8,7 @@
       dependencies = [ "temporary-directory.my-temp-dir" ];
       spec = { resources }: {
         name = "foobar-vm";
+        start = true;
         base-folder = resources.temporary-directory.my-temp-dir.path;
       };
     };

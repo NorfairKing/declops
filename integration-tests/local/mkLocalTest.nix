@@ -13,6 +13,9 @@ nixosTest (
         nix
         virtualbox # TODO only make this available if it's necessary?
       ];
+      virtualisation.virtualbox.host = {
+        enable = true;
+      };
     };
     testScript = ''
       machine.start()

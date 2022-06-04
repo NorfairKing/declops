@@ -46,6 +46,7 @@ spec = do
                 (\_ -> genValid)
                 ( \tdir -> (`suchThat` isValid) $ do
                     virtualBoxSpecificationBaseFolder <- (</>) tdir <$> genValid
+                    virtualBoxSpecificationStart <- genValid
                     pure VirtualBoxSpecification {..}
                 )
 

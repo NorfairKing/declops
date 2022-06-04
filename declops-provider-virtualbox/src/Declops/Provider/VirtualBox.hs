@@ -12,6 +12,7 @@ import Control.Monad
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString.Lazy as LB
 import Data.Maybe
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
@@ -31,7 +32,8 @@ import System.Process.Typed
 import Text.Read
 
 data VirtualBoxSpecification = VirtualBoxSpecification
-  { virtualBoxSpecificationBaseFolder :: !(Path Abs Dir)
+  { virtualBoxSpecificationStart :: !Bool,
+    virtualBoxSpecificationBaseFolder :: !(Path Abs Dir)
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec VirtualBoxSpecification)
@@ -42,7 +44,8 @@ instance HasCodec VirtualBoxSpecification where
   codec =
     object "VirtualBoxSpecification" $
       VirtualBoxSpecification
-        <$> requiredField "base-folder" "base folder" .= virtualBoxSpecificationBaseFolder
+        <$> optionalFieldWithDefault "start" True "whether the vm should be turned on" .= virtualBoxSpecificationStart
+        <*> requiredField "base-folder" "base folder" .= virtualBoxSpecificationBaseFolder
 
 data VirtualBoxOutput = VirtualBoxOutput
   { virtualBoxOutputUUID :: !UUID,
@@ -128,8 +131,18 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
         Just VirtualBoxInfo {..} -> do
           if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
             then do
-              logDebugN "VM is already deployed correctly, leaving it as-is."
-              pure $ ApplySuccess () output
+              let stateCorrect = case virtualBoxInfoVMState of
+                    "poweroff" -> not virtualBoxSpecificationStart
+                    "poweron" -> virtualBoxSpecificationStart
+                    _ -> False
+              if stateCorrect
+                then do
+                  logDebugN "VM is already deployed correctly, leaving it as-is."
+                  pure $ ApplySuccess () output
+                else do
+                  logDebugN "VM is already deployed correctly, but turned off, turning it on."
+                  turnOnVM resourceName
+                  pure $ ApplySuccess () output
             else do
               logDebugN "VM is deployed a different settings file, recreating it."
               unregisterVirtualBox resourceName
@@ -227,12 +240,14 @@ getVMInfo resourceName = do
       virtualBoxInfoSettingsFile <- case readMaybe (T.unpack settingsFileVal) >>= parseAbsFile of
         Nothing -> fail $ unwords ["settings file not readable:", show settingsFileVal]
         Just settingsFile -> pure settingsFile
+      virtualBoxInfoVMState <- requireVal "VMState"
       pure $ Just $ VirtualBoxInfo {..}
     ExitFailure _ -> pure Nothing
 
 data VirtualBoxInfo = VirtualBoxInfo
   { virtualBoxInfoUUID :: !UUID,
-    virtualBoxInfoSettingsFile :: !(Path Abs File)
+    virtualBoxInfoSettingsFile :: !(Path Abs File),
+    virtualBoxInfoVMState :: !Text
   }
   deriving (Show, Eq, Generic)
 
@@ -287,6 +302,22 @@ predictSettionsFile resourceName baseFolder = do
        in concat [n, "/", n, ".vbox"]
   logDebugN $ T.pack $ unwords ["Predicting that the settings file will be at", fromAbsFile settingsFile]
   pure settingsFile
+
+turnOnVM :: ResourceName -> P ()
+turnOnVM resourceName = do
+  logDebugN "Turning on VM"
+  let args =
+        [ "startvm",
+          T.unpack $ resourceNameText resourceName,
+          "--type",
+          "headless"
+        ]
+  pc <- liftIO $ mkVBoxManageProcessConfig args
+  logProcessConfig pc
+  ec <- runProcess pc
+  case ec of
+    ExitSuccess -> pure ()
+    ExitFailure c -> fail $ unwords ["startvm failed with exit code:", show c]
 
 mkVBoxManageProcessConfig :: [String] -> IO (ProcessConfig () () ())
 mkVBoxManageProcessConfig args = do
