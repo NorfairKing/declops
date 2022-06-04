@@ -13,4 +13,5 @@ in
   "nix-test" = pkgs.declopsNixTest;
   "virtualisation-test-script" = pkgs.declopsVirtualisationTestScript;
   "local-integration-tests" = (import ./integration-tests/local { inherit sources pkgs; }).all;
+  "virtualisation-integration-test-script" = (import ./integration-tests/virtualisation { inherit sources pkgs; }).all;
 }

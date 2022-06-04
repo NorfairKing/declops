@@ -17,11 +17,7 @@ let
     (pkgs.lib.filterAttrs
       (path: type: type == "regular" && pkgs.lib.hasSuffix ".nix" path)
       testDirEntries);
-  allTests =
-    pkgs.symlinkJoin
-      {
-        name = "declops-virtualisation-integration-tests";
-        paths = builtins.attrValues individualTests;
-      };
+  allTests = pkgs.writeShellScript "declops-virtualisation-integration-tests"
+    (pkgs.lib.concatStringsSep "\n" (builtins.attrValues individualTests));
 in
 individualTests // { all = allTests; }
