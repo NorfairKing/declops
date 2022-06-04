@@ -1,7 +1,7 @@
 # VirtualBoxSpecification
-[37mstart[m: # [34moptional[m
+[37mrunning[m: # [34moptional[m
   # default: [35mtrue[m
-  # whether the vm should be turned on
+  # whether the vm should be running
   [33m<boolean>[m
 [37mbase-folder[m: # [31mrequired[m
   # base folder

@@ -81,6 +81,13 @@ cleanupVMs = do
       let uuidVals = mapMaybe (\(k, v) -> if k == "UUID" then UUID.fromText v else Nothing) tups
       -- TODO only remove declops test vms?
       forM_ uuidVals $ \uuid -> do
+        stopVmPC <-
+          mkVBoxManageProcessConfig
+            [ "controlvm",
+              UUID.toString uuid,
+              "poweroff"
+            ]
+        _ <- runProcess stopVmPC
         unregisterPc <-
           mkVBoxManageProcessConfig
             [ "unregistervm",
