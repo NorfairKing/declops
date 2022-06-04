@@ -36,7 +36,9 @@ We many different tests with many different requirements:
 * Integration tests that can be run inside a nix build but require the "Virtualisation" setting in the BIOS of the build machine to be turned on.
   * The test suite in `declops-provider-virtualbox`
 * Integration tests that need to be able to run `nix` as a command, and can therefore not be run inside a `nix-build`.
-  These tests are run in a NixOS test:
+  These tests are run in a NixOS test.
+  They cannot be run on GitHub actions CI.
   * The test suite in `declops-nix-test` is run in `nix/nix-test.nix`
-* Integration tests of local providers that run entire deployments inside a NixOS test:
+* Integration tests of local providers that run entire deployments inside a NixOS test.
+  They cannot be run on GitHub actions CI.
   * The `integration-tests/local` directory.
