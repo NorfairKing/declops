@@ -161,13 +161,26 @@ checkVirtualBox resourceName VirtualBoxSpecification {..} () = do
     Nothing -> fail $ unwords ["VM does not exist:", show resourceName]
     Just VirtualBoxInfo {..} -> do
       if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
-        then
-          pure $
-            CheckSuccess $
-              VirtualBoxOutput
-                { virtualBoxOutputUUID = virtualBoxInfoUUID,
-                  virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
-                }
+        then do
+          stateCorrect <- case virtualBoxInfoVMState of
+            "running" -> pure virtualBoxSpecificationRunning
+            "poweroff" -> pure $ not virtualBoxSpecificationRunning
+            s -> fail $ unwords ["unknown VM state:", show s]
+          if stateCorrect
+            then
+              pure $
+                CheckSuccess $
+                  VirtualBoxOutput
+                    { virtualBoxOutputUUID = virtualBoxInfoUUID,
+                      virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
+                    }
+            else
+              fail $
+                unlines
+                  [ "VM exists but is not in the correct state:",
+                    unwords ["State:", show virtualBoxInfoVMState],
+                    unwords ["Should be running:", show virtualBoxSpecificationRunning]
+                  ]
         else
           fail $
             unlines
