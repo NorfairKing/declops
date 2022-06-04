@@ -29,11 +29,11 @@ Declops has been the most challenging testing project I have made so far.
 
 We many different tests with many different requirements:
 
-| Tests                                      | Location                         | Package build | NixOS test | GitHub Actions CI |
-|--------------------------------------------|----------------------------------|---------------|------------|-------------------|
-| Unit tests                                 | `declops-provider-gen/test`      | ✔️             |            | ✔️                 |
-| Database integration tests                 | `declops/test/Declops/DBSpec.hs` | ✔️             |            | ✔️                 |
-| Local provider integration tests           | `declops-provider-local/test`    | ✔️             |            | ✔️                 |
-| Nix tests (require the `nix` command)      | `nix/nix-test.nix`               | ✖️             | ✔️          | ✖️                 |
-| Deployment integration tests               | `integration-tests/local`        | ✖️             | ✔️          | ✖️                 |
-| Virtualbox tests (require virtiualisation) | `declops-provider-virtualbox`    | ✖️             | ✖️          | ✖️                 |
+| Tests                                      | Location                         | Stack test | Package build | NixOS test | GitHub Actions CI | Manual Nix Script |
+|--------------------------------------------|----------------------------------|------------|---------------|------------|-------------------|-------------------|
+| Unit tests                                 | `declops-provider-gen/test`      | ✔          | ✔️             |            | ✔️                 |                   |
+| Database integration tests                 | `declops/test/Declops/DBSpec.hs` | ✔          | ✔️             |            | ✔️                 |                   |
+| Local provider integration tests           | `declops-provider-local/test`    | ✔          | ✔️             |            | ✔️                 |                   |
+| Nix tests (require the `nix` command)      | `nix/nix-test.nix`               | ✔️          | ✖️             | ✔️          | ✖️                 |                   |
+| Deployment integration tests               | `integration-tests/local`        | ✖          | ✖️             | ✔️          | ✖️                 |                   |
+| Virtualbox tests (require virtiualisation) | `declops-provider-virtualbox`    | ✔          | ✖️             | ✖️          | ✖️                 | ✔                 |

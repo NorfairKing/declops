@@ -29,21 +29,20 @@ import Test.Syd.Validity
 
 spec :: Spec
 spec = do
-  modifyMaxSuccess (const 1) $
-    modifyMaxSize (const 10) $
-      sequential $
-        tempDirSpec tempDirTemplate $
-          beforeWith withTmpHome $
-            before_ cleanupVMs $
-              localProviderSpec
-                False
-                virtualBoxProvider
-                (\_ -> genValid)
-                ( \tdir -> (`suchThat` isValid) $ do
-                    virtualBoxSpecificationBaseFolder <- (</>) tdir <$> genValid
-                    virtualBoxSpecificationRunning <- genValid
-                    pure VirtualBoxSpecification {..}
-                )
+  modifyMaxSuccess (`div` 50) $
+    sequential $
+      tempDirSpec tempDirTemplate $
+        beforeWith withTmpHome $
+          before_ cleanupVMs $
+            localProviderSpec
+              False
+              virtualBoxProvider
+              (\_ -> genValid)
+              ( \tdir -> (`suchThat` isValid) $ do
+                  virtualBoxSpecificationBaseFolder <- (</>) tdir <$> genValid
+                  virtualBoxSpecificationRunning <- genValid
+                  pure VirtualBoxSpecification {..}
+              )
 
 -- WARNING: Not threadsafe
 --

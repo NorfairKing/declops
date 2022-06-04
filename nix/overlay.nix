@@ -57,12 +57,26 @@ let
         cp dist/build/*-test/*-test $out/bin/test-suites
       '';
     });
-
+  declopsVirtualisationTestPkg = name:
+    overrideCabal (declopsPkg name) (old: {
+      # To make sure that the test suite is built.
+      doCheck = true;
+      # To make sure that no tests are run.
+      # They will be run manually.
+      testFlags = (old.testFlags or [ ]) ++ [ "--match=nomatchfoobarquux" ];
+      # To make sure that the test suite executable is available in the build
+      # result
+      postInstall = (old.postInstall or "") + ''
+        mkdir -p $out/bin/test-suites
+        cp dist/build/*-test/*-test $out/bin/test-suites
+      '';
+    });
 in
 {
   declopsVirtualisationTestPackages = {
-    "declops-provider-virtualbox-test" = declopsNixTestPkg "declops-provider-virtualbox-test";
+    "declops-provider-virtualbox-test" = declopsVirtualisationTestPkg "declops-provider-virtualbox-test";
   };
+  declopsVirtualisationTestScript = final.callPackage ./virtualisation-test-script.nix { };
 
   declopsNixTestPackages = {
     "declops-nix-test" = declopsNixTestPkg "declops-nix-test";

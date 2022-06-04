@@ -11,5 +11,6 @@ in
     paths = (import ./shell.nix { inherit sources pkgs pre-commit; }).buildInputs;
   };
   "nix-test" = pkgs.declopsNixTest;
+  "virtualisation-test-script" = pkgs.declopsVirtualisationTestScript;
   "local-integration-tests" = (import ./integration-tests/local { inherit sources pkgs; }).all;
 }
