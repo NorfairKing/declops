@@ -9,6 +9,7 @@ packages:
 - declops-provider-virtualbox-gen
 
 - declops-nix-test
+- declops-provider-virtualbox-test
 
 extra-deps:
 - github: NorfairKing/autodocodec

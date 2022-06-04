@@ -1,8 +1,5 @@
-name: declops-provider-virtualbox-gen
+name: declops-provider-virtualbox-test
 version: 0.0.0.0
-
-extra-source-files:
-- test_resources/**/*
 
 dependencies:
 - base >= 4.7 && < 5
@@ -11,13 +8,8 @@ library:
   source-dirs: src
   build-tools: autoexporter
   dependencies:
-    - QuickCheck
     - declops-provider-virtualbox
-    - genvalidity
-    - genvalidity-path
-    - genvalidity-sydtest
-    - genvalidity-text
-    - genvalidity-uuid
+    - declops-provider-virtualbox-gen
 
 tests:
   declops-provider-virtualbox-test:
@@ -35,7 +27,6 @@ tests:
     - bytestring
     - declops-provider-test
     - declops-provider-virtualbox
-    - declops-provider-virtualbox-gen
     - genvalidity-path
     - genvalidity-sydtest
     - genvalidity-text

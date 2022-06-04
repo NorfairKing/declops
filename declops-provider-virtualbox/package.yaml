@@ -1,15 +1,11 @@
 name: declops-provider-virtualbox
 version: 0.0.0.0
 
-extra-source-files:
-- test_resources/**/*
-
 dependencies:
 - base >= 4.7 && < 5
 
 library:
   source-dirs: src
-  build-tools: autoexporter
   dependencies:
     - aeson
     - autodocodec
