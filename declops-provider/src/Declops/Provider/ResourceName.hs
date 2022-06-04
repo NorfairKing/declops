@@ -2,6 +2,7 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Declops.Provider.ResourceName where
 
@@ -29,6 +30,7 @@ instance Validity ResourceName where
     mconcat
       [ genericValidate rn,
         declare "The resource name is not empty" $ not $ T.null t,
+        declare "The resource name is not \"-\"" $ t /= "-",
         decorateText t validateResourceNameChar
       ]
 

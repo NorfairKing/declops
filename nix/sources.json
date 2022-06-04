@@ -53,10 +53,10 @@
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "8b3398bc7587ebb79f93dfeea1b8c574d3c6dba1",
-        "sha256": "1yaql4cwy4vd0sfd7gmcg5wpm2sn13ggkayvfq2l4kc1i4s57xcc",
+        "rev": "ec6eaba9dfcfdd11547d75a193e91e26701bf7e3",
+        "sha256": "018658ypakpg9yxbyzd06vaxzs5956lr30jkfvw0fzn33pp01xdg",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/8b3398bc7587ebb79f93dfeea1b8c574d3c6dba1.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/ec6eaba9dfcfdd11547d75a193e91e26701bf7e3.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "pre-commit-hooks": {
@@ -89,10 +89,10 @@
         "homepage": "",
         "owner": "NorfairKing",
         "repo": "sydtest",
-        "rev": "a446095558bc9f67bc3b8ca2e9ce230150c049ff",
-        "sha256": "0m4g5m3jwk4kanr80g6bfxl11g0h6aaiikwn3ak0b9czcaby3dc2",
+        "rev": "263745786c277fab6d82ff6f48b6d745ade7a314",
+        "sha256": "0r6xh7ajz15m7bgcsnrbk529hnkfahmfv1ay1lyb98850lh3v7xk",
         "type": "tarball",
-        "url": "https://github.com/NorfairKing/sydtest/archive/a446095558bc9f67bc3b8ca2e9ce230150c049ff.tar.gz",
+        "url": "https://github.com/NorfairKing/sydtest/archive/263745786c277fab6d82ff6f48b6d745ade7a314.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "validity": {

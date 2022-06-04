@@ -13,7 +13,6 @@ import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString.Lazy as LB
 import Data.List
 import Data.Maybe
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
@@ -105,6 +104,7 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
     DoesNotExistLocallyNorRemotely -> do
       logDebugN "Creating a brand new VM."
       (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
+      when virtualBoxSpecificationRunning $ turnOnVM resourceName
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
       pure $ ApplySuccess () output
     ExistsLocallyButNotRemotely () -> do
@@ -117,6 +117,7 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
         liftIO $ ignoringAbsence $ removeFile predictedSettingsFile
 
       (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
+      when virtualBoxSpecificationRunning $ turnOnVM resourceName
       let output = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
       pure $ ApplySuccess () output
     ExistsLocallyAndRemotely uuid output -> do
@@ -132,25 +133,22 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
         Just VirtualBoxInfo {..} -> do
           if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
             then do
-              case virtualBoxInfoVMState of
-                "running" ->
-                  if virtualBoxSpecificationRunning
-                    then logDebugN "VM is already running, leaving it as-is."
-                    else do
-                      logDebugN "VM is deployed, and turned on, turning it off."
-                      turnOffVM resourceName
-                "poweroff" ->
-                  if virtualBoxSpecificationRunning
-                    then do
-                      logDebugN "VM is not running yet, turning it on."
-                      turnOnVM resourceName
-                    else logDebugN "VM is turned off, leaving it as-is."
-                _ -> fail $ "Unknown VM state: " <> show virtualBoxInfoVMState
+              case (virtualBoxInfoVMState, virtualBoxSpecificationRunning) of
+                (VMStatePoweroff, False) -> logDebugN "VM is turned off, leaving it as-is."
+                (VMStateRunning, True) -> logDebugN "VM is already running, leaving it as-is."
+                (VMStateRunning, False) -> do
+                  logDebugN "VM is deployed, and turned on, turning it off."
+                  turnOffVM resourceName
+                (VMStatePoweroff, True) -> do
+                  logDebugN "VM is not running yet, turning it on."
+                  turnOnVM resourceName
               pure $ ApplySuccess () output
             else do
-              logDebugN "VM is deployed a different settings file, recreating it."
+              logDebugN "VM is deployed a different settings file, recreating the virtual box."
+              when (virtualBoxInfoVMState == VMStateRunning) $ turnOffVM resourceName
               unregisterVirtualBox resourceName
               (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
+              when virtualBoxSpecificationRunning $ turnOnVM resourceName
               let newOutput = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
               pure $ ApplySuccess () newOutput
 
@@ -162,10 +160,9 @@ checkVirtualBox resourceName VirtualBoxSpecification {..} () = do
     Just VirtualBoxInfo {..} -> do
       if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
         then do
-          stateCorrect <- case virtualBoxInfoVMState of
-            "running" -> pure virtualBoxSpecificationRunning
-            "poweroff" -> pure $ not virtualBoxSpecificationRunning
-            s -> fail $ unwords ["unknown VM state:", show s]
+          let stateCorrect = case virtualBoxInfoVMState of
+                VMStateRunning -> virtualBoxSpecificationRunning
+                VMStatePoweroff -> not virtualBoxSpecificationRunning
           if stateCorrect
             then
               pure $
@@ -200,7 +197,8 @@ destroyVirtualBox resourceName () = do
   mVmInfo <- getVMInfo resourceName
   case mVmInfo of
     Nothing -> pure DestroySuccess
-    Just _ -> do
+    Just VirtualBoxInfo {..} -> do
+      when (virtualBoxInfoVMState == VMStateRunning) (turnOffVM resourceName)
       unregisterVirtualBox resourceName
       pure DestroySuccess
 
@@ -260,15 +258,24 @@ getVMInfo resourceName = do
       virtualBoxInfoSettingsFile <- case parseAbsFile $ T.unpack settingsFileVal of
         Nothing -> fail $ unwords ["settings file not readable:", show settingsFileVal]
         Just settingsFile -> pure settingsFile
-      virtualBoxInfoVMState <- requireVal "VMState"
+      stateVal <- requireVal "VMState"
+      virtualBoxInfoVMState <- case stateVal of
+        "running" -> pure VMStateRunning
+        "poweroff" -> pure VMStatePoweroff
+        _ -> fail $ unwords ["Unknown vm state: ", show stateVal]
       pure $ Just $ VirtualBoxInfo {..}
     ExitFailure _ -> pure Nothing
 
 data VirtualBoxInfo = VirtualBoxInfo
   { virtualBoxInfoUUID :: !UUID,
     virtualBoxInfoSettingsFile :: !(Path Abs File),
-    virtualBoxInfoVMState :: !Text
+    virtualBoxInfoVMState :: !VMState
   }
+  deriving (Show, Eq, Generic)
+
+data VMState
+  = VMStateRunning
+  | VMStatePoweroff
   deriving (Show, Eq, Generic)
 
 makeVirtualBox :: ResourceName -> Path Abs Dir -> P (UUID, Path Abs File)
