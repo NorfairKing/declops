@@ -60,9 +60,12 @@ let
 
 in
 {
+  declopsVirtualisationTestPackages = {
+    "declops-provider-virtualbox-test" = declopsNixTestPkg "declops-provider-virtualbox-test";
+  };
+
   declopsNixTestPackages = {
     "declops-nix-test" = declopsNixTestPkg "declops-nix-test";
-    "declops-provider-virtualbox-test" = declopsNixTestPkg "declops-provider-virtualbox-test";
   };
   declopsNixTest = final.callPackage ./nix-test.nix { };
 

@@ -4,7 +4,7 @@
 
 let
   mkLocalTest = pkgs.callPackage ./mkLocalTest.nix { };
-  testDirEntries = builtins.readDir ./tests;
+  testDirEntries = builtins.readDir ./deployments;
   individualTests = pkgs.lib.mapAttrs'
     (path: _:
       let name = builtins.baseNameOf (pkgs.lib.removeSuffix ".nix" path);
@@ -12,7 +12,7 @@ let
       pkgs.lib.nameValuePair name
         (mkLocalTest {
           inherit name;
-          deployment = ./tests + "/${path}";
+          deployment = ./deployments + "/${path}";
         }))
     (pkgs.lib.filterAttrs
       (path: type: type == "regular" && pkgs.lib.hasSuffix ".nix" path)
