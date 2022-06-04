@@ -155,7 +155,8 @@ localProviderSpec debug provider genReference genInput = do
             applyResult <- apply resourceName input DoesNotExistLocallyNorRemotely
             (reference, output) <- requireApplySuccess applyResult
             applyResult' <- apply resourceName input (ExistsLocallyAndRemotely reference output)
-            applyResult' `shouldBe` applyResult
+            (_, output') <- requireApplySuccess applyResult'
+            output `shouldBe` output'
 
       it "is idempotent when the resource already exists and has not changed" $ \i ->
         forAllValid $ \resourceName ->

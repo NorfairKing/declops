@@ -11,6 +11,7 @@ import Autodocodec
 import Control.Monad
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString.Lazy as LB
+import Data.List
 import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -32,7 +33,7 @@ import System.Process.Typed
 import Text.Read
 
 data VirtualBoxSpecification = VirtualBoxSpecification
-  { virtualBoxSpecificationStart :: !Bool,
+  { virtualBoxSpecificationRunning :: !Bool,
     virtualBoxSpecificationBaseFolder :: !(Path Abs Dir)
   }
   deriving stock (Show, Eq, Generic)
@@ -44,7 +45,7 @@ instance HasCodec VirtualBoxSpecification where
   codec =
     object "VirtualBoxSpecification" $
       VirtualBoxSpecification
-        <$> optionalFieldWithDefault "start" True "whether the vm should be turned on" .= virtualBoxSpecificationStart
+        <$> optionalFieldWithDefault "running" True "whether the vm should be running" .= virtualBoxSpecificationRunning
         <*> requiredField "base-folder" "base folder" .= virtualBoxSpecificationBaseFolder
 
 data VirtualBoxOutput = VirtualBoxOutput
@@ -131,18 +132,21 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
         Just VirtualBoxInfo {..} -> do
           if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
             then do
-              let stateCorrect = case virtualBoxInfoVMState of
-                    "poweroff" -> not virtualBoxSpecificationStart
-                    "poweron" -> virtualBoxSpecificationStart
-                    _ -> False
-              if stateCorrect
-                then do
-                  logDebugN "VM is already deployed correctly, leaving it as-is."
-                  pure $ ApplySuccess () output
-                else do
-                  logDebugN "VM is already deployed correctly, but turned off, turning it on."
-                  turnOnVM resourceName
-                  pure $ ApplySuccess () output
+              case virtualBoxInfoVMState of
+                "running" ->
+                  if virtualBoxSpecificationRunning
+                    then logDebugN "VM is already running, leaving it as-is."
+                    else do
+                      logDebugN "VM is deployed, and turned on, turning it off."
+                      turnOffVM resourceName
+                "poweroff" ->
+                  if virtualBoxSpecificationRunning
+                    then do
+                      logDebugN "VM is not running yet, turning it on."
+                      turnOnVM resourceName
+                    else logDebugN "VM is turned off, leaving it as-is."
+                _ -> fail $ "Unknown VM state: " <> show virtualBoxInfoVMState
+              pure $ ApplySuccess () output
             else do
               logDebugN "VM is deployed a different settings file, recreating it."
               unregisterVirtualBox resourceName
@@ -222,8 +226,11 @@ getVMInfo resourceName = do
       logDebugN $ T.pack $ unlines ["Read stdout:", T.unpack outputText]
       let tups = flip mapMaybe (T.lines outputText) $ \t ->
             case T.splitOn "=" t of
-              [key, val] -> Just (key, val)
+              [key, val] -> do
+                v <- readMaybe (T.unpack val)
+                pure (key, v)
               _ -> Nothing
+      logDebugN $ T.pack $ unlines ("Parsed tuples:" : map show (sort tups))
       let requireVal key = case lookup key tups of
             Nothing ->
               throwP $
@@ -233,11 +240,11 @@ getVMInfo resourceName = do
                     map show tups
             Just val -> pure val
       uuidVal <- requireVal "UUID"
-      virtualBoxInfoUUID <- case UUID.fromString $ read $ T.unpack uuidVal of
+      virtualBoxInfoUUID <- case UUID.fromString $ T.unpack uuidVal of
         Nothing -> fail $ unwords ["uuid not readable:", show uuidVal]
         Just u -> pure u
       settingsFileVal <- requireVal "CfgFile"
-      virtualBoxInfoSettingsFile <- case readMaybe (T.unpack settingsFileVal) >>= parseAbsFile of
+      virtualBoxInfoSettingsFile <- case parseAbsFile $ T.unpack settingsFileVal of
         Nothing -> fail $ unwords ["settings file not readable:", show settingsFileVal]
         Just settingsFile -> pure settingsFile
       virtualBoxInfoVMState <- requireVal "VMState"
@@ -311,6 +318,21 @@ turnOnVM resourceName = do
           T.unpack $ resourceNameText resourceName,
           "--type",
           "headless"
+        ]
+  pc <- liftIO $ mkVBoxManageProcessConfig args
+  logProcessConfig pc
+  ec <- runProcess pc
+  case ec of
+    ExitSuccess -> pure ()
+    ExitFailure c -> fail $ unwords ["startvm failed with exit code:", show c]
+
+turnOffVM :: ResourceName -> P ()
+turnOffVM resourceName = do
+  logDebugN "Turning off VM"
+  let args =
+        [ "controlvm",
+          T.unpack $ resourceNameText resourceName,
+          "poweroff"
         ]
   pc <- liftIO $ mkVBoxManageProcessConfig args
   logProcessConfig pc

@@ -1,4 +1,8 @@
 # VirtualBoxSpecification
+[37mstart[m: # [34moptional[m
+  # default: [35mtrue[m
+  # whether the vm should be turned on
+  [33m<boolean>[m
 [37mbase-folder[m: # [31mrequired[m
   # base folder
   [33m<string>[m
