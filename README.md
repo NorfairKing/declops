@@ -23,6 +23,16 @@ Would be nice too:
 * Monadic infrastructure: Which infrastructure to set up next can depend on previously set up infrastructure.
 * Stateless version: A mode in which all providers must be locally stateless.
 
+## Comparison
+
+|                                            | Declops | [Nixops](https://github.com/NixOS/nixops)  | [Terraform](https://www.terraform.io/) | [Nixinate](https://github.com/MatthewCroughan/nixinate)  | Ansible | Puppet |
+|--------------------------------------------|---------|---------|-----------|-----------|-------|-----|
+| Declarative                                | ✔       | ✔       | ✔         | ✔         | ✖️     | ✖️   |
+| Stateless                                  | ✔       | ✖️       | ✖️         | ✔️         | ✔️     | ✔️   |
+| Set up new infrastructure                  | ✔       | ✔       | ✔         | ✖️         | ✔️     | ✔️   |
+| Nix for configuration                      | ✔       | ✔       | ✖️         | ✔️         | ✖️     | ✖️   |
+| Exists                                     | ✖️       | ✔       | ✔️         | ✔️         | ✔️     | ✔️   |
+
 ## Hacking
 
 Declops has been the most challenging testing project I have made so far.
