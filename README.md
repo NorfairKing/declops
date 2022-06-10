@@ -17,11 +17,11 @@ To see what's already possible, you can dig into the `integration-tests` directo
 * Success as the exception: Many things can go wrong. Errors must be first-class, explicit, clear, and diagnosable.
 * Completely debuggable: Ops is difficult, any attempt at hiding that will end in more confusion rather than less.
 * Built-in infrastructure testing.
+* Stateless: No local state
 
 Would be nice too:
 
 * Monadic infrastructure: Which infrastructure to set up next can depend on previously set up infrastructure.
-* Stateless version: A mode in which all providers must be locally stateless.
 
 ## Comparison
 
