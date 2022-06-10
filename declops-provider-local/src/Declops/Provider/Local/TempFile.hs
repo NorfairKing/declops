@@ -9,7 +9,6 @@ module Declops.Provider.Local.TempFile where
 
 import Autodocodec
 import Data.Aeson (FromJSON, ToJSON)
-import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -20,12 +19,9 @@ import Declops.Provider
 import GHC.Generics (Generic)
 import Path
 import Path.IO
-import System.IO (hClose)
 
 data TempFileSpecification = TempFileSpecification
-  { tempFileSpecificationBase :: !(Path Abs Dir),
-    tempFileSpecificationTemplate :: !Text, -- Text because of json roundtrip requirement
-    tempFileSpecificationContents :: !Text
+  { tempFileSpecificationContents :: !Text
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec TempFileSpecification)
@@ -36,9 +32,7 @@ instance HasCodec TempFileSpecification where
   codec =
     object "TempFileSpecification" $
       TempFileSpecification
-        <$> requiredField "base" "base dir" .= tempFileSpecificationBase
-        <*> requiredField "template" "template file name" .= tempFileSpecificationTemplate
-        <*> requiredField "contents" "file contents" .= tempFileSpecificationContents
+        <$> requiredField "contents" "file contents" .= tempFileSpecificationContents
 
 data TempFileOutput = TempFileOutput
   { tempFileOutputPath :: !(Path Abs File),
@@ -56,7 +50,7 @@ instance HasCodec TempFileOutput where
         <$> requiredField "path" "file path" .= tempFileOutputPath
         <*> requiredField "contents" "file contents" .= tempFileOutputContents
 
-tempFileProvider :: Provider TempFileSpecification (Path Abs File) TempFileOutput
+tempFileProvider :: Provider TempFileSpecification () TempFileOutput
 tempFileProvider =
   Provider
     { providerName = "temporary-file",
@@ -66,9 +60,10 @@ tempFileProvider =
       providerDestroy = destroyTempFile
     }
 
-queryTempFile :: ResourceName -> Path Abs File -> P (QueryResult TempFileOutput)
-queryTempFile _ path = liftIO $ do
-  mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile path
+queryTempFile :: ResourceName -> () -> P (QueryResult TempFileOutput)
+queryTempFile resourceName () = do
+  path <- resolveResourceTempFile resourceName
+  mContents <- liftIO $ forgivingAbsence $ TIO.readFile $ fromAbsFile path
   pure $
     QuerySuccess $ case mContents of
       Nothing -> DoesNotExistRemotely
@@ -79,79 +74,72 @@ queryTempFile _ path = liftIO $ do
               tempFileOutputContents = contents
             }
 
-applyTempFile :: ResourceName -> TempFileSpecification -> ApplyContext (Path Abs File) TempFileOutput -> P (ApplyResult (Path Abs File) TempFileOutput)
-applyTempFile _ TempFileSpecification {..} applyContext = liftIO $ do
+applyTempFile :: ResourceName -> TempFileSpecification -> ApplyContext () TempFileOutput -> P (ApplyResult () TempFileOutput)
+applyTempFile resourceName TempFileSpecification {..} applyContext = do
+  path <- resolveResourceTempFile resourceName
+  let output = TempFileOutput {tempFileOutputPath = path, tempFileOutputContents = tempFileSpecificationContents}
   case applyContext of
     DoesNotExistLocallyNorRemotely -> do
-      tfile <- makeTempFile tempFileSpecificationBase tempFileSpecificationTemplate tempFileSpecificationContents
-      let output = TempFileOutput {tempFileOutputPath = tfile, tempFileOutputContents = tempFileSpecificationContents}
-      pure $ ApplySuccess tfile output
-    ExistsLocallyButNotRemotely reference -> do
-      removeTempFile reference
-      tfile <- makeTempFile tempFileSpecificationBase tempFileSpecificationTemplate tempFileSpecificationContents
-      let output = TempFileOutput {tempFileOutputPath = tfile, tempFileOutputContents = tempFileSpecificationContents}
-      pure $ ApplySuccess tfile output
-    ExistsLocallyAndRemotely reference output@TempFileOutput {..} -> do
+      makeTempFile path tempFileSpecificationContents
+      pure $ ApplySuccess () output
+    ExistsLocallyButNotRemotely () -> do
+      makeTempFile path tempFileSpecificationContents
+      pure $ ApplySuccess () output
+    ExistsLocallyAndRemotely () TempFileOutput {..} -> do
       let alreadyCorrect =
             and
-              [ case stripProperPrefix tempFileSpecificationBase tempFileOutputPath of
-                  Nothing -> False
-                  Just subfile -> T.unpack tempFileSpecificationTemplate `isInfixOf` fromRelFile subfile,
+              [ tempFileOutputPath == path,
                 tempFileOutputContents == tempFileSpecificationContents
               ]
       if alreadyCorrect
-        then pure $ ApplySuccess reference output
+        then pure $ ApplySuccess () output
         else do
-          removeTempFile reference
-          tfile <- makeTempFile tempFileSpecificationBase tempFileSpecificationTemplate tempFileSpecificationContents
-          let newOutput = TempFileOutput {tempFileOutputPath = tfile, tempFileOutputContents = tempFileSpecificationContents}
-          pure $ ApplySuccess tfile newOutput
+          removeTempFile tempFileOutputPath
+          makeTempFile path tempFileSpecificationContents
+          pure $ ApplySuccess () output
 
-checkTempFile :: ResourceName -> TempFileSpecification -> Path Abs File -> P (CheckResult TempFileOutput)
-checkTempFile _ TempFileSpecification {..} path = liftIO $ do
-  case stripProperPrefix tempFileSpecificationBase path of
-    Nothing -> pure $ CheckFailure "File had the wrong base."
-    Just subfile ->
-      if T.unpack tempFileSpecificationTemplate `isInfixOf` fromRelFile subfile
-        then do
-          mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile path
-          case mContents of
-            Nothing -> fail "File does not exist."
-            Just contents ->
-              if contents == tempFileSpecificationContents
-                then
-                  pure $
-                    CheckSuccess
-                      TempFileOutput
-                        { tempFileOutputPath = path,
-                          tempFileOutputContents = contents
-                        }
-                else
-                  fail $
-                    unlines
-                      [ "File did not have the right contents:",
-                        unwords ["expected:", show tempFileSpecificationContents],
-                        unwords ["actual:  ", show contents]
-                      ]
-        else
-          fail $
-            unlines
-              [ "File did not have the right template:",
-                unwords ["expected:   ", T.unpack tempFileSpecificationTemplate],
-                unwords ["actual file:", fromAbsFile path]
-              ]
+checkTempFile :: ResourceName -> TempFileSpecification -> () -> P (CheckResult TempFileOutput)
+checkTempFile resourceName TempFileSpecification {..} () = do
+  path <- resolveResourceTempFile resourceName
+  liftIO $ do
+    mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile path
+    case mContents of
+      Nothing -> fail "File does not exist."
+      Just contents ->
+        if contents == tempFileSpecificationContents
+          then
+            pure $
+              CheckSuccess
+                TempFileOutput
+                  { tempFileOutputPath = path,
+                    tempFileOutputContents = contents
+                  }
+          else
+            fail $
+              unlines
+                [ "File did not have the right contents:",
+                  unwords ["expected:", show tempFileSpecificationContents],
+                  unwords ["actual:  ", show contents]
+                ]
 
-destroyTempFile :: ResourceName -> Path Abs File -> P DestroyResult
-destroyTempFile _ path = liftIO $ do
+destroyTempFile :: ResourceName -> () -> P DestroyResult
+destroyTempFile resourceName () = do
+  path <- resolveResourceTempFile resourceName
   removeTempFile path
   pure DestroySuccess
 
-removeTempFile :: Path Abs File -> IO ()
-removeTempFile path = ignoringAbsence $ removeFile path
+removeTempFile :: Path Abs File -> P ()
+removeTempFile path = do
+  logDebugN $ T.pack $ unwords ["Removing", show path]
+  liftIO $ ignoringAbsence $ removeFile path
 
-makeTempFile :: Path Abs Dir -> Text -> Text -> IO (Path Abs File)
-makeTempFile base template contents = do
-  (tfile, handle) <- openTempFile base (T.unpack template)
-  TIO.hPutStr handle contents
-  hClose handle
-  pure tfile
+makeTempFile :: Path Abs File -> Text -> P ()
+makeTempFile path contents = do
+  logDebugN $ T.pack $ unwords ["Creating", show path]
+  liftIO $ TIO.writeFile (fromAbsFile path) contents
+
+resolveResourceTempFile :: ResourceName -> P (Path Abs File)
+resolveResourceTempFile resourceName = do
+  path <- liftIO $ parseAbsFile $ "/tmp/declops-" <> T.unpack (unResourceName resourceName)
+  logDebugN $ T.pack $ unwords ["Resolving temporary file to path:", show path]
+  pure path

@@ -59,12 +59,6 @@ tempDirProvider =
       providerDestroy = destroyTempDir
     }
 
-resolveResourceTempDir :: ResourceName -> P (Path Abs Dir)
-resolveResourceTempDir resourceName = do
-  path <- liftIO $ parseAbsDir $ "/tmp/declops-" <> T.unpack (unResourceName resourceName)
-  logDebugN $ T.pack $ unwords ["Resolving temporary dir to path:", show path]
-  pure path
-
 queryTempDir :: ResourceName -> () -> P (QueryResult TempDirOutput)
 queryTempDir resourceName () = do
   path <- resolveResourceTempDir resourceName
@@ -115,3 +109,9 @@ makeTempDir :: Path Abs Dir -> P ()
 makeTempDir path = do
   logDebugN $ T.pack $ unwords ["Creating", show path]
   liftIO $ ensureDir path
+
+resolveResourceTempDir :: ResourceName -> P (Path Abs Dir)
+resolveResourceTempDir resourceName = do
+  path <- liftIO $ parseAbsDir $ "/tmp/declops-" <> T.unpack (unResourceName resourceName)
+  logDebugN $ T.pack $ unwords ["Resolving temporary dir to path:", show path]
+  pure path

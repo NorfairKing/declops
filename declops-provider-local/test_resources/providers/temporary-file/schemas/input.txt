@@ -1,10 +1,4 @@
 # TempFileSpecification
-[37mbase[m: # [31mrequired[m
-  # base dir
-  [33m<string>[m
-[37mtemplate[m: # [31mrequired[m
-  # template file name
-  [33m<string>[m
 [37mcontents[m: # [31mrequired[m
   # file contents
   [33m<string>[m
