@@ -34,15 +34,16 @@ spec = do
       tempDirSpec tempDirTemplate $
         beforeWith withTmpHome $
           before_ cleanupVMs $
-            localProviderSpec
-              False
-              virtualBoxProvider
-              (\_ -> genValid)
-              ( \tdir -> (`suchThat` isValid) $ do
-                  virtualBoxSpecificationBaseFolder <- (</>) tdir <$> genValid
-                  virtualBoxSpecificationRunning <- genValid
-                  pure VirtualBoxSpecification {..}
-              )
+            after_ cleanupVMs $
+              localProviderSpec
+                False
+                virtualBoxProvider
+                (\_ -> genValid)
+                ( \tdir -> (`suchThat` isValid) $ do
+                    virtualBoxSpecificationBaseFolder <- (</>) tdir <$> genValid
+                    virtualBoxSpecificationRunning <- genValid
+                    pure VirtualBoxSpecification {..}
+                )
 
 -- WARNING: Not threadsafe
 --

@@ -1,7 +1,2 @@
 # TempDirSpecification
-[37mbase[m: # [31mrequired[m
-  # base directory
-  [33m<string>[m
-[37mtemplate[m: # [31mrequired[m
-  # template directory name
-  [33m<string>[m
+<object>

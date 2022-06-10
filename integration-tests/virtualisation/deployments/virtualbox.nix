@@ -1,9 +1,6 @@
 {
   resources = {
-    temporary-directory.my-temp-dir = {
-      base = "/tmp";
-      template = "virtualbox";
-    };
+    temporary-directory.my-temp-dir = { };
     virtualbox.my-box = {
       dependencies = [ "temporary-directory.my-temp-dir" ];
       spec = { resources }: {

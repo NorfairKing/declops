@@ -6,12 +6,12 @@ module Declops.Provider.Local.TempDirSpec (spec) where
 
 import Data.GenValidity.Path ()
 import Data.GenValidity.Text ()
+import Data.List
 import Declops.Provider.Local.TempDir
 import Declops.Provider.Test
 import Path
-import Test.QuickCheck
+import Path.IO
 import Test.Syd
-import Test.Syd.Path
 import Test.Syd.Validity
 
 instance GenValid TempDirSpecification
@@ -22,9 +22,18 @@ spec :: Spec
 spec = do
   providerJSONSpec tempDirProvider
   modifyMaxSuccess (`div` 10) $
-    tempDirSpec "declops-temporary-dir-provider-test" $
-      localProviderSpec
-        False
-        tempDirProvider
-        (\tdir -> (</>) tdir <$> genValid)
-        (\tdir -> TempDirSpecification tdir <$> elements ["foo", "bar", "quux"])
+    sequential $
+      before_ cleanupTempDirs $
+        after_ cleanupTempDirs $
+          localProviderSpec
+            False
+            tempDirProvider
+            (\_ -> pure ())
+            (\_ -> pure TempDirSpecification)
+
+cleanupTempDirs :: IO ()
+cleanupTempDirs = do
+  tmpDir <- resolveDir' "/tmp"
+  dirs <- fst <$> listDir tmpDir
+  let declopsDirs = filter (("/tmp/declops-" `isPrefixOf`) . fromAbsDir) dirs
+  mapM_ removeDirRecur declopsDirs

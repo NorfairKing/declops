@@ -199,19 +199,22 @@ localProviderSpec debug provider genReference genInput = do
       it "fails the check after applying a different input" $ \i ->
         forAllValid $ \resourceName ->
           forAll (genInput i) $ \input1 ->
-            forAll (genInput i `suchThat` (/= input1)) $ \input2 -> do
-              applyResult <- apply resourceName input1 DoesNotExistLocallyNorRemotely
-              (reference, _) <- requireApplySuccess applyResult
-              checkResult <- check resourceName input2 reference
-              case checkResult of
-                CheckFailure _ -> pure ()
-                CheckSuccess output ->
-                  liftIO $
-                    expectationFailure $
-                      unlines
-                        [ "should not have succeeded, but did and got this output:",
-                          ppShow output
-                        ]
+            forAll (genInput i) $ \input2 -> do
+              if input1 == input2
+                then pure () -- Cannot run this test
+                else do
+                  applyResult <- apply resourceName input1 DoesNotExistLocallyNorRemotely
+                  (reference, _) <- requireApplySuccess applyResult
+                  checkResult <- check resourceName input2 reference
+                  case checkResult of
+                    CheckFailure _ -> pure ()
+                    CheckSuccess output ->
+                      liftIO $
+                        expectationFailure $
+                          unlines
+                            [ "should not have succeeded, but did and got this output:",
+                              ppShow output
+                            ]
 
       it "can apply a change and pass a check" $ \i ->
         forAllValid $ \resourceName ->

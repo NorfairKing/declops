@@ -1,14 +1,8 @@
 {
   resources = {
     temporary-directory = {
-      my-temp-dir = {
-        base = "/tmp";
-        template = "bar";
-      };
-      my-other-temp-dir = {
-        base = "/tmp";
-        template = "bar";
-      };
+      my-temp-dir = { };
+      my-other-temp-dir = { };
     };
   };
 }

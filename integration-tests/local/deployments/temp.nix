@@ -1,17 +1,8 @@
 {
   resources = {
     temporary-directory = {
-      my-temp-dir = {
-        base = "/tmp";
-        template = "bar";
-      };
-      my-other-temp-dir = {
-        dependencies = [ "temporary-directory.my-temp-dir" ];
-        spec = { resources }: {
-          base = resources.temporary-directory.my-temp-dir.path;
-          template = "bar";
-        };
-      };
+      my-temp-dir = { };
+      my-other-temp-dir = { };
     };
     temporary-file = {
       my-temp-file = {

@@ -15,8 +15,6 @@ where
 import Autodocodec
 import Control.Arrow (left)
 import Data.Aeson (FromJSON, ToJSON)
-import Data.List
-import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Validity
 import Data.Validity.Path ()
@@ -27,9 +25,6 @@ import Path
 import Path.IO
 
 data TempDirSpecification = TempDirSpecification
-  { tempDirSpecificationBase :: !(Path Abs Dir),
-    tempDirSpecificationTemplate :: !Text -- Text because of JSON roundtrip requirement
-  }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec TempDirSpecification)
 
@@ -38,9 +33,7 @@ instance Validity TempDirSpecification
 instance HasCodec TempDirSpecification where
   codec =
     object "TempDirSpecification" $
-      TempDirSpecification
-        <$> requiredField "base" "base directory" .= tempDirSpecificationBase
-        <*> requiredField "template" "template directory name" .= tempDirSpecificationTemplate
+      pure TempDirSpecification
 
 data TempDirOutput = TempDirOutput
   { tempDirOutputPath :: !(Path Abs Dir)
@@ -56,7 +49,7 @@ instance HasCodec TempDirOutput where
       TempDirOutput
         <$> requiredFieldWith "path" (bimapCodec (left show . parseAbsDir) fromAbsDir codec) "dir path" .= tempDirOutputPath
 
-tempDirProvider :: Provider TempDirSpecification (Path Abs Dir) TempDirOutput
+tempDirProvider :: Provider TempDirSpecification () TempDirOutput
 tempDirProvider =
   Provider
     { providerName = "temporary-directory",
@@ -66,65 +59,59 @@ tempDirProvider =
       providerDestroy = destroyTempDir
     }
 
-queryTempDir :: ResourceName -> Path Abs Dir -> P (QueryResult TempDirOutput)
-queryTempDir _ path = liftIO $ do
-  exists <- doesDirExist path
+resolveResourceTempDir :: ResourceName -> P (Path Abs Dir)
+resolveResourceTempDir resourceName = do
+  path <- liftIO $ parseAbsDir $ "/tmp/declops-" <> T.unpack (unResourceName resourceName)
+  logDebugN $ T.pack $ unwords ["Resolving temporary dir to path:", show path]
+  pure path
+
+queryTempDir :: ResourceName -> () -> P (QueryResult TempDirOutput)
+queryTempDir resourceName () = do
+  path <- resolveResourceTempDir resourceName
+  liftIO $ do
+    exists <- doesDirExist path
+    let output = TempDirOutput {tempDirOutputPath = path}
+    pure $
+      QuerySuccess $
+        if exists
+          then ExistsRemotely output
+          else DoesNotExistRemotely
+
+applyTempDir :: ResourceName -> TempDirSpecification -> ApplyContext () TempDirOutput -> P (ApplyResult () TempDirOutput)
+applyTempDir resourceName TempDirSpecification applyContext = do
+  path <- resolveResourceTempDir resourceName
   let output = TempDirOutput {tempDirOutputPath = path}
-  pure $
-    QuerySuccess $
-      if exists
-        then ExistsRemotely output
-        else DoesNotExistRemotely
-
-applyTempDir :: ResourceName -> TempDirSpecification -> ApplyContext (Path Abs Dir) TempDirOutput -> P (ApplyResult (Path Abs Dir) TempDirOutput)
-applyTempDir _ TempDirSpecification {..} applyContext = liftIO $ do
   case applyContext of
-    DoesNotExistLocallyNorRemotely -> do
-      tdir <- makeTempDir tempDirSpecificationBase tempDirSpecificationTemplate
-      let output = TempDirOutput {tempDirOutputPath = tdir}
-      pure $ ApplySuccess tdir output
-    ExistsLocallyButNotRemotely path -> do
-      ignoringAbsence $ removeDirRecur path
-      tdir <- makeTempDir tempDirSpecificationBase tempDirSpecificationTemplate
-      let output = TempDirOutput {tempDirOutputPath = tdir}
-      pure $ ApplySuccess tdir output
-    ExistsLocallyAndRemotely path output@TempDirOutput {..} -> do
-      let alreadyCorrect = case stripProperPrefix tempDirSpecificationBase tempDirOutputPath of
-            Nothing -> False
-            Just subdir -> T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
-      if alreadyCorrect
-        then pure $ ApplySuccess path output
+    DoesNotExistLocallyNorRemotely -> makeTempDir path
+    ExistsLocallyButNotRemotely () -> makeTempDir path
+    ExistsLocallyAndRemotely () TempDirOutput {..} ->
+      if tempDirOutputPath == path
+        then pure ()
         else do
-          ignoringAbsence $ removeDirRecur path
-          tdir <- makeTempDir tempDirSpecificationBase tempDirSpecificationTemplate
-          let newOutput = TempDirOutput {tempDirOutputPath = tdir}
-          pure $ ApplySuccess tdir newOutput
+          removeTempDir tempDirOutputPath
+          makeTempDir path
+  pure $ ApplySuccess () output
 
-checkTempDir :: ResourceName -> TempDirSpecification -> Path Abs Dir -> P (CheckResult TempDirOutput)
-checkTempDir _ TempDirSpecification {..} path = liftIO $ do
-  exists <- doesDirExist path
+checkTempDir :: ResourceName -> TempDirSpecification -> () -> P (CheckResult TempDirOutput)
+checkTempDir resourceName TempDirSpecification () = do
+  path <- resolveResourceTempDir resourceName
+  exists <- liftIO $ doesDirExist path
   if exists
-    then case stripProperPrefix tempDirSpecificationBase path of
-      Nothing -> fail "Directory had the wrong base."
-      Just subdir ->
-        if T.unpack tempDirSpecificationTemplate `isInfixOf` fromRelDir subdir
-          then pure $ CheckSuccess TempDirOutput {tempDirOutputPath = path}
-          else
-            fail $
-              unlines
-                [ "Directory did not have the right template:",
-                  unwords ["expected:  ", T.unpack tempDirSpecificationTemplate],
-                  unwords ["actual dir:", fromAbsDir path]
-                ]
+    then pure $ CheckSuccess TempDirOutput {tempDirOutputPath = path}
     else fail "Directory does not exist."
 
-destroyTempDir :: ResourceName -> Path Abs Dir -> P DestroyResult
-destroyTempDir _ path = liftIO $ do
+destroyTempDir :: ResourceName -> () -> P DestroyResult
+destroyTempDir resourceName () = do
+  path <- resolveResourceTempDir resourceName
   removeTempDir path
   pure DestroySuccess
 
-removeTempDir :: Path Abs Dir -> IO ()
-removeTempDir path = ignoringAbsence $ removeDirRecur path
+removeTempDir :: Path Abs Dir -> P ()
+removeTempDir path = do
+  logDebugN $ T.pack $ unwords ["Removing", show path]
+  liftIO $ ignoringAbsence $ removeDirRecur path
 
-makeTempDir :: Path Abs Dir -> Text -> IO (Path Abs Dir)
-makeTempDir base template = createTempDir base (T.unpack template)
+makeTempDir :: Path Abs Dir -> P ()
+makeTempDir path = do
+  logDebugN $ T.pack $ unwords ["Creating", show path]
+  liftIO $ ensureDir path
