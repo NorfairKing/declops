@@ -69,7 +69,6 @@ instance HasCodec UUID where
 virtualBoxProvider ::
   Provider
     VirtualBoxSpecification
-    ()
     VirtualBoxOutput
 virtualBoxProvider =
   Provider
@@ -80,8 +79,8 @@ virtualBoxProvider =
       providerDestroy = destroyVirtualBox
     }
 
-queryVirtualBox :: ResourceName -> () -> P (QueryResult VirtualBoxOutput)
-queryVirtualBox resourceName () = do
+queryVirtualBox :: ResourceName -> P (QueryResult VirtualBoxOutput)
+queryVirtualBox resourceName = do
   mTups <- getVMInfo resourceName
   case mTups of
     Nothing -> pure $ QuerySuccess DoesNotExistRemotely
@@ -97,63 +96,41 @@ queryVirtualBox resourceName () = do
 applyVirtualBox ::
   ResourceName ->
   VirtualBoxSpecification ->
-  ApplyContext () VirtualBoxOutput ->
-  P (ApplyResult () VirtualBoxOutput)
-applyVirtualBox resourceName VirtualBoxSpecification {..} applyContext = do
-  case applyContext of
-    DoesNotExistLocallyNorRemotely -> do
+  P (ApplyResult VirtualBoxOutput)
+applyVirtualBox resourceName VirtualBoxSpecification {..} = do
+  mVMInfo <- getVMInfo resourceName
+  case mVMInfo of
+    Nothing -> do
       logDebugN "Creating a brand new VM."
       (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
       when virtualBoxSpecificationRunning $ turnOnVM resourceName
       let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
-      pure $ ApplySuccess () output
-    ExistsLocallyButNotRemotely () -> do
-      logDebugN "VM is missing, creating a new one."
-      -- Make sure there's no settings file in the way.
-      predictedSettingsFile <- predictSettionsFile resourceName virtualBoxSpecificationBaseFolder
-      settingsFileAlreadyExists <- doesFileExist predictedSettingsFile
-      when settingsFileAlreadyExists $ do
-        logDebugN "Settings file already existed, even if the vm has vanished, so removing it."
-        liftIO $ ignoringAbsence $ removeFile predictedSettingsFile
+      pure $ ApplySuccess output
+    Just VirtualBoxInfo {..} -> do
+      if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
+        then do
+          case (virtualBoxInfoVMState, virtualBoxSpecificationRunning) of
+            (VMStatePoweroff, False) -> logDebugN "VM is turned off, leaving it as-is."
+            (VMStateRunning, True) -> logDebugN "VM is already running, leaving it as-is."
+            (VMStateRunning, False) -> do
+              logDebugN "VM is deployed, and turned on, turning it off."
+              turnOffVM resourceName
+            (VMStatePoweroff, True) -> do
+              logDebugN "VM is not running yet, turning it on."
+              turnOnVM resourceName
+          let output = VirtualBoxOutput {virtualBoxOutputUUID = virtualBoxInfoUUID, virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile}
+          pure $ ApplySuccess output
+        else do
+          logDebugN "VM is deployed a different settings file, recreating the virtual box."
+          when (virtualBoxInfoVMState == VMStateRunning) $ turnOffVM resourceName
+          unregisterVirtualBox resourceName
+          (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
+          when virtualBoxSpecificationRunning $ turnOnVM resourceName
+          let output = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
+          pure $ ApplySuccess output
 
-      (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
-      when virtualBoxSpecificationRunning $ turnOnVM resourceName
-      let output = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
-      pure $ ApplySuccess () output
-    ExistsLocallyAndRemotely uuid output -> do
-      logDebugN $
-        T.pack $
-          unwords
-            [ "VM already exists, checking whether it is already deployed correctly:",
-              show uuid
-            ]
-      mVMInfo <- getVMInfo resourceName
-      case mVMInfo of
-        Nothing -> fail "Should have been able to find the VM info"
-        Just VirtualBoxInfo {..} -> do
-          if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
-            then do
-              case (virtualBoxInfoVMState, virtualBoxSpecificationRunning) of
-                (VMStatePoweroff, False) -> logDebugN "VM is turned off, leaving it as-is."
-                (VMStateRunning, True) -> logDebugN "VM is already running, leaving it as-is."
-                (VMStateRunning, False) -> do
-                  logDebugN "VM is deployed, and turned on, turning it off."
-                  turnOffVM resourceName
-                (VMStatePoweroff, True) -> do
-                  logDebugN "VM is not running yet, turning it on."
-                  turnOnVM resourceName
-              pure $ ApplySuccess () output
-            else do
-              logDebugN "VM is deployed a different settings file, recreating the virtual box."
-              when (virtualBoxInfoVMState == VMStateRunning) $ turnOffVM resourceName
-              unregisterVirtualBox resourceName
-              (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
-              when virtualBoxSpecificationRunning $ turnOnVM resourceName
-              let newOutput = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
-              pure $ ApplySuccess () newOutput
-
-checkVirtualBox :: ResourceName -> VirtualBoxSpecification -> () -> P (CheckResult VirtualBoxOutput)
-checkVirtualBox resourceName VirtualBoxSpecification {..} () = do
+checkVirtualBox :: ResourceName -> VirtualBoxSpecification -> P (CheckResult VirtualBoxOutput)
+checkVirtualBox resourceName VirtualBoxSpecification {..} = do
   mTups <- getVMInfo resourceName
   case mTups of
     Nothing -> fail $ unwords ["VM does not exist:", show resourceName]
@@ -192,8 +169,8 @@ checkVirtualBox resourceName VirtualBoxSpecification {..} () = do
                   ]
               ]
 
-destroyVirtualBox :: ResourceName -> () -> P DestroyResult
-destroyVirtualBox resourceName () = do
+destroyVirtualBox :: ResourceName -> P DestroyResult
+destroyVirtualBox resourceName = do
   mVmInfo <- getVMInfo resourceName
   case mVmInfo of
     Nothing -> pure DestroySuccess

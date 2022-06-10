@@ -2,7 +2,6 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Declops.Provider.Local.TempDir
@@ -14,6 +13,7 @@ where
 
 import Autodocodec
 import Control.Arrow (left)
+import Control.Monad
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Text as T
 import Data.Validity
@@ -49,7 +49,7 @@ instance HasCodec TempDirOutput where
       TempDirOutput
         <$> requiredFieldWith "path" (bimapCodec (left show . parseAbsDir) fromAbsDir codec) "dir path" .= tempDirOutputPath
 
-tempDirProvider :: Provider TempDirSpecification () TempDirOutput
+tempDirProvider :: Provider TempDirSpecification TempDirOutput
 tempDirProvider =
   Provider
     { providerName = "temporary-directory",
@@ -59,8 +59,8 @@ tempDirProvider =
       providerDestroy = destroyTempDir
     }
 
-queryTempDir :: ResourceName -> () -> P (QueryResult TempDirOutput)
-queryTempDir resourceName () = do
+queryTempDir :: ResourceName -> P (QueryResult TempDirOutput)
+queryTempDir resourceName = do
   path <- resolveResourceTempDir resourceName
   liftIO $ do
     exists <- doesDirExist path
@@ -71,31 +71,24 @@ queryTempDir resourceName () = do
           then ExistsRemotely output
           else DoesNotExistRemotely
 
-applyTempDir :: ResourceName -> TempDirSpecification -> ApplyContext () TempDirOutput -> P (ApplyResult () TempDirOutput)
-applyTempDir resourceName TempDirSpecification applyContext = do
+applyTempDir :: ResourceName -> TempDirSpecification -> P (ApplyResult TempDirOutput)
+applyTempDir resourceName TempDirSpecification = do
   path <- resolveResourceTempDir resourceName
+  exists <- liftIO $ doesDirExist path
+  when (not exists) $ makeTempDir path
   let output = TempDirOutput {tempDirOutputPath = path}
-  case applyContext of
-    DoesNotExistLocallyNorRemotely -> makeTempDir path
-    ExistsLocallyButNotRemotely () -> makeTempDir path
-    ExistsLocallyAndRemotely () TempDirOutput {..} ->
-      if tempDirOutputPath == path
-        then pure ()
-        else do
-          removeTempDir tempDirOutputPath
-          makeTempDir path
-  pure $ ApplySuccess () output
+  pure $ ApplySuccess output
 
-checkTempDir :: ResourceName -> TempDirSpecification -> () -> P (CheckResult TempDirOutput)
-checkTempDir resourceName TempDirSpecification () = do
+checkTempDir :: ResourceName -> TempDirSpecification -> P (CheckResult TempDirOutput)
+checkTempDir resourceName TempDirSpecification = do
   path <- resolveResourceTempDir resourceName
   exists <- liftIO $ doesDirExist path
   if exists
     then pure $ CheckSuccess TempDirOutput {tempDirOutputPath = path}
     else fail "Directory does not exist."
 
-destroyTempDir :: ResourceName -> () -> P DestroyResult
-destroyTempDir resourceName () = do
+destroyTempDir :: ResourceName -> P DestroyResult
+destroyTempDir resourceName = do
   path <- resolveResourceTempDir resourceName
   removeTempDir path
   pure DestroySuccess

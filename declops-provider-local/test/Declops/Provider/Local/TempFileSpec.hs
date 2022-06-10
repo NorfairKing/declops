@@ -28,7 +28,6 @@ spec = do
           localProviderSpec
             False
             tempFileProvider
-            (\_ -> pure ())
             (\_ -> TempFileSpecification <$> genValid)
 
 cleanupTempFiles :: IO ()

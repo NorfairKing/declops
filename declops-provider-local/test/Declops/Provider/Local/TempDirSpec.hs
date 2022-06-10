@@ -28,7 +28,6 @@ spec = do
           localProviderSpec
             False
             tempDirProvider
-            (\_ -> pure ())
             (\_ -> pure TempDirSpecification)
 
 cleanupTempDirs :: IO ()

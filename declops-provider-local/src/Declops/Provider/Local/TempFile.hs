@@ -50,7 +50,7 @@ instance HasCodec TempFileOutput where
         <$> requiredField "path" "file path" .= tempFileOutputPath
         <*> requiredField "contents" "file contents" .= tempFileOutputContents
 
-tempFileProvider :: Provider TempFileSpecification () TempFileOutput
+tempFileProvider :: Provider TempFileSpecification TempFileOutput
 tempFileProvider =
   Provider
     { providerName = "temporary-file",
@@ -60,8 +60,8 @@ tempFileProvider =
       providerDestroy = destroyTempFile
     }
 
-queryTempFile :: ResourceName -> () -> P (QueryResult TempFileOutput)
-queryTempFile resourceName () = do
+queryTempFile :: ResourceName -> P (QueryResult TempFileOutput)
+queryTempFile resourceName = do
   path <- resolveResourceTempFile resourceName
   mContents <- liftIO $ forgivingAbsence $ TIO.readFile $ fromAbsFile path
   pure $
@@ -74,32 +74,23 @@ queryTempFile resourceName () = do
               tempFileOutputContents = contents
             }
 
-applyTempFile :: ResourceName -> TempFileSpecification -> ApplyContext () TempFileOutput -> P (ApplyResult () TempFileOutput)
-applyTempFile resourceName TempFileSpecification {..} applyContext = do
+applyTempFile :: ResourceName -> TempFileSpecification -> P (ApplyResult TempFileOutput)
+applyTempFile resourceName TempFileSpecification {..} = do
   path <- resolveResourceTempFile resourceName
-  let output = TempFileOutput {tempFileOutputPath = path, tempFileOutputContents = tempFileSpecificationContents}
-  case applyContext of
-    DoesNotExistLocallyNorRemotely -> do
-      makeTempFile path tempFileSpecificationContents
-      pure $ ApplySuccess () output
-    ExistsLocallyButNotRemotely () -> do
-      makeTempFile path tempFileSpecificationContents
-      pure $ ApplySuccess () output
-    ExistsLocallyAndRemotely () TempFileOutput {..} -> do
-      let alreadyCorrect =
-            and
-              [ tempFileOutputPath == path,
-                tempFileOutputContents == tempFileSpecificationContents
-              ]
-      if alreadyCorrect
-        then pure $ ApplySuccess () output
+  mContents <- liftIO $ forgivingAbsence $ TIO.readFile $ fromAbsFile path
+  case mContents of
+    Nothing -> makeTempFile path tempFileSpecificationContents
+    Just contents ->
+      if contents == tempFileSpecificationContents
+        then pure ()
         else do
-          removeTempFile tempFileOutputPath
+          removeTempFile path
           makeTempFile path tempFileSpecificationContents
-          pure $ ApplySuccess () output
+  let output = TempFileOutput {tempFileOutputPath = path, tempFileOutputContents = tempFileSpecificationContents}
+  pure $ ApplySuccess output
 
-checkTempFile :: ResourceName -> TempFileSpecification -> () -> P (CheckResult TempFileOutput)
-checkTempFile resourceName TempFileSpecification {..} () = do
+checkTempFile :: ResourceName -> TempFileSpecification -> P (CheckResult TempFileOutput)
+checkTempFile resourceName TempFileSpecification {..} = do
   path <- resolveResourceTempFile resourceName
   liftIO $ do
     mContents <- forgivingAbsence $ TIO.readFile $ fromAbsFile path
@@ -122,8 +113,8 @@ checkTempFile resourceName TempFileSpecification {..} () = do
                   unwords ["actual:  ", show contents]
                 ]
 
-destroyTempFile :: ResourceName -> () -> P DestroyResult
-destroyTempFile resourceName () = do
+destroyTempFile :: ResourceName -> P DestroyResult
+destroyTempFile resourceName = do
   path <- resolveResourceTempFile resourceName
   removeTempFile path
   pure DestroySuccess
