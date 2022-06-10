@@ -11,11 +11,9 @@ library:
   source-dirs: src
   build-tools: autoexporter
   dependencies:
-    - QuickCheck
     - declops-provider-virtualbox
     - genvalidity
     - genvalidity-path
-    - genvalidity-sydtest
     - genvalidity-text
     - genvalidity-uuid
 
@@ -30,9 +28,6 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - QuickCheck
-    - aeson
-    - autodocodec
-    - bytestring
     - declops-provider-test
     - declops-provider-virtualbox
     - declops-provider-virtualbox-gen
@@ -40,9 +35,4 @@ tests:
     - genvalidity-sydtest
     - genvalidity-text
     - genvalidity-uuid
-    - path
-    - path-io
     - sydtest
-    - text
-    - typed-process
-    - uuid

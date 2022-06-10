@@ -1,14 +1,12 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.5.
+-- This file has been generated from package.yaml by hpack version 0.34.7.
 --
 -- see: https://github.com/sol/hpack
 
 name:           declops
 version:        0.0.0.0
 build-type:     Simple
-extra-source-files:
-    test_resources/db/migration.sql
 data-files:
     nix-bits/get-graph.nix
     nix-bits/get-specification.nix
@@ -21,7 +19,6 @@ library
       Declops.Command.Check
       Declops.Command.Destroy
       Declops.Command.Query
-      Declops.DB
       Declops.Env
       Declops.Nix
       Declops.OptParse
@@ -48,8 +45,6 @@ library
     , optparse-applicative
     , path
     , path-io
-    , persistent
-    , persistent-sqlite
     , safe-coloured-text
     , safe-coloured-text-layout
     , safe-coloured-text-terminfo
@@ -57,7 +52,6 @@ library
     , typed-process
     , unliftio
     , validity
-    , validity-aeson
     , yaml
   default-language: Haskell2010
 
@@ -71,41 +65,4 @@ executable declops
   build-depends:
       base >=4.7 && <5
     , declops
-  default-language: Haskell2010
-
-test-suite declops-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules:
-      Declops.DBSpec
-      Paths_declops
-  hs-source-dirs:
-      test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-tool-depends:
-      sydtest-discover:sydtest-discover
-  build-depends:
-      aeson
-    , autodocodec
-    , autodocodec-yaml
-    , base >=4.7 && <5
-    , declops
-    , declops-provider
-    , declops-provider-gen
-    , genvalidity-aeson
-    , genvalidity-containers
-    , genvalidity-path
-    , genvalidity-sydtest
-    , genvalidity-sydtest-aeson
-    , genvalidity-sydtest-persistent
-    , genvalidity-text
-    , monad-logger
-    , mtl
-    , path
-    , path-io
-    , persistent-sqlite
-    , safe-coloured-text
-    , sydtest
-    , sydtest-persistent-sqlite
-    , text
   default-language: Haskell2010

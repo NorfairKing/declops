@@ -16,9 +16,6 @@ import qualified Data.Map as M
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Database.Persist.Sql
-import Database.Persist.Sqlite
-import Declops.DB
 import Declops.OptParse (Settings (..))
 import Declops.Provider
 import Declops.Provider.Local.TempDir
@@ -35,36 +32,24 @@ type C a = ReaderT Env (LoggingT IO) a
 
 data Env = Env
   { envDeploymentFile :: !(Path Abs File),
-    envConnectionPool :: !ConnectionPool,
     envTerminalCapabilities :: !TerminalCapabilities
   }
-
-runDB :: SqlPersistT IO a -> C a
-runDB func = do
-  pool <- asks envConnectionPool
-  liftIO $ runSqlPool func pool
 
 runC :: Settings -> C () -> IO ()
 runC Settings {..} func = do
   envTerminalCapabilities <- liftIO getTerminalCapabilitiesFromEnv
-  runColouredStderrLoggingT envTerminalCapabilities $
-    filterLogger (\_ ll -> ll >= settingLogLevel) $
-      withSqlitePool (T.pack (fromAbsFile settingStateFile)) 1 $ \pool -> do
-        runSqlPool (runMigration localMigration) pool
-        let envDeploymentFile = settingDeploymentFile
-        let envConnectionPool = pool
-        runReaderT func Env {..}
+  runColouredStderrLoggingT envTerminalCapabilities $ do
+    filterLogger (\_ ll -> ll >= settingLogLevel) $ do
+      let envDeploymentFile = settingDeploymentFile
+      runReaderT func Env {..}
 
 allProviders :: Map ProviderName JSONProvider
 allProviders =
   let p ::
         ( FromJSON specification,
-          FromJSON reference,
-          ToJSON reference,
-          FromJSON output,
           ToJSON output
         ) =>
-        Provider specification reference output ->
+        Provider specification output ->
         (ProviderName, JSONProvider)
 
       p provider = (providerName provider, toJSONProvider provider)

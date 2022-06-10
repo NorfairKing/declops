@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.5.
+-- This file has been generated from package.yaml by hpack version 0.34.7.
 --
 -- see: https://github.com/sol/hpack
 
@@ -18,7 +18,6 @@ library
   build-depends:
       base >=4.7 && <5
     , declops-provider-virtualbox
-    , declops-provider-virtualbox-gen
   default-language: Haskell2010
 
 test-suite declops-provider-virtualbox-test
@@ -34,8 +33,6 @@ test-suite declops-provider-virtualbox-test
       sydtest-discover:sydtest-discover
   build-depends:
       QuickCheck
-    , aeson
-    , autodocodec
     , base >=4.7 && <5
     , bytestring
     , declops-provider-test

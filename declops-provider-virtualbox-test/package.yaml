@@ -9,7 +9,6 @@ library:
   build-tools: autoexporter
   dependencies:
     - declops-provider-virtualbox
-    - declops-provider-virtualbox-gen
 
 tests:
   declops-provider-virtualbox-test:
@@ -22,8 +21,6 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - QuickCheck
-    - aeson
-    - autodocodec
     - bytestring
     - declops-provider-test
     - declops-provider-virtualbox

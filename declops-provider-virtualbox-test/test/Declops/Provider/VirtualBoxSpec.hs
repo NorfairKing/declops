@@ -38,7 +38,6 @@ spec = do
               localProviderSpec
                 False
                 virtualBoxProvider
-                (\_ -> genValid)
                 ( \tdir -> (`suchThat` isValid) $ do
                     virtualBoxSpecificationBaseFolder <- (</>) tdir <$> genValid
                     virtualBoxSpecificationRunning <- genValid

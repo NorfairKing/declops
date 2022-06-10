@@ -49,8 +49,7 @@ test-suite declops-provider-local-test
   build-tool-depends:
       sydtest-discover:sydtest-discover
   build-depends:
-      QuickCheck
-    , aeson
+      aeson
     , autodocodec
     , base >=4.7 && <5
     , declops-provider-local

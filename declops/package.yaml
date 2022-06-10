@@ -1,9 +1,6 @@
 name: declops
 version: 0.0.0.0
 
-extra-source-files:
-- test_resources/**/*
-
 data-files:
 - nix-bits/**/*.nix
 
@@ -29,8 +26,6 @@ library:
     - optparse-applicative
     - path
     - path-io
-    - persistent
-    - persistent-sqlite
     - safe-coloured-text
     - safe-coloured-text-layout
     - safe-coloured-text-terminfo
@@ -38,7 +33,6 @@ library:
     - typed-process
     - unliftio
     - validity
-    - validity-aeson
     - yaml
 
 executables:
@@ -51,36 +45,3 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - declops
-
-tests:
-  declops-test:
-    main: Spec.hs
-    build-tools: sydtest-discover
-    source-dirs: test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - aeson
-    - autodocodec
-    - autodocodec-yaml
-    - declops
-    - declops-provider
-    - declops-provider-gen
-    - genvalidity-aeson
-    - genvalidity-containers
-    - genvalidity-path
-    - genvalidity-sydtest
-    - genvalidity-sydtest-aeson
-    - genvalidity-sydtest-persistent
-    - genvalidity-text
-    - monad-logger
-    - mtl
-    - path
-    - path-io
-    - persistent-sqlite
-    - safe-coloured-text
-    - sydtest
-    - sydtest-persistent-sqlite
-    - text

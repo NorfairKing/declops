@@ -21,12 +21,10 @@ library
   build-tool-depends:
       autoexporter:autoexporter
   build-depends:
-      QuickCheck
-    , base >=4.7 && <5
+      base >=4.7 && <5
     , declops-provider-virtualbox
     , genvalidity
     , genvalidity-path
-    , genvalidity-sydtest
     , genvalidity-text
     , genvalidity-uuid
   default-language: Haskell2010
@@ -44,10 +42,7 @@ test-suite declops-provider-virtualbox-test
       sydtest-discover:sydtest-discover
   build-depends:
       QuickCheck
-    , aeson
-    , autodocodec
     , base >=4.7 && <5
-    , bytestring
     , declops-provider-test
     , declops-provider-virtualbox
     , declops-provider-virtualbox-gen
@@ -55,10 +50,5 @@ test-suite declops-provider-virtualbox-test
     , genvalidity-sydtest
     , genvalidity-text
     , genvalidity-uuid
-    , path
-    , path-io
     , sydtest
-    , text
-    , typed-process
-    , uuid
   default-language: Haskell2010

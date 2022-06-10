@@ -31,7 +31,6 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - QuickCheck
     - aeson
     - autodocodec
     - declops-provider-test

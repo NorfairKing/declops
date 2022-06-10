@@ -11,6 +11,10 @@ packages:
 - declops-nix-test
 - declops-provider-virtualbox-test
 
+# These are duplicated in nix/overlay.nix
+ghc-options:
+  "$locals": -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wpartial-fields -Widentities -Wredundant-constraints -Wcpp-undef
+
 extra-deps:
 - github: NorfairKing/autodocodec
   commit: 38bd4865ff2dd40d342141b7fde9319f835d98c6

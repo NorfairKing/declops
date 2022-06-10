@@ -13,8 +13,6 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Traversable
-import Database.Persist
-import Declops.DB
 import Declops.Env
 import Declops.Nix
 import Declops.Provider
@@ -52,97 +50,73 @@ declopsCheckResults :: C (Map ResourceId JSONCheckResult)
 declopsCheckResults = do
   DependenciesSpecification dependenciesMap <- nixEvalGraph
 
-  referenceMap <- getReferenceMap dependenciesMap
+  outputVars <-
+    fmap (M.fromList . concat) $
+      forM (M.toList dependenciesMap) $ \(providerName, (_, resources)) ->
+        forM (M.toList resources) $ \(resourceName, _) -> do
+          outputVar <- newEmptyMVar
+          pure (ResourceId providerName resourceName, outputVar)
 
-  outputVars <- forM referenceMap $ const newEmptyMVar
-
-  fmap M.fromList $
-    forConcurrently (M.toList referenceMap) $ \(resourceId, (provider, dependencies, mReference)) ->
-      withResourceIdSource resourceId $ do
-        dependencyResults <- fmap (M.fromListWith M.union) $
-          forConcurrently dependencies $ \dependency -> do
-            case M.lookup dependency outputVars of
-              Nothing -> liftIO $ die $ unwords ["Unsatisfiable dependency", T.unpack $ renderResourceId dependency]
-              Just outputVar -> do
-                logDebugN $
-                  T.pack $
-                    unwords
-                      [ "Waiting for the outputs of",
-                        T.unpack $ renderResourceId dependency
-                      ]
-                dependencyResults <- readMVar outputVar
-                pure (resourceIdProvider dependency, M.singleton (resourceIdResource dependency) dependencyResults)
-
-        logDebugN "All dependencies satisfied to try to check"
-
-        let mDependencyOutputs :: Maybe (Map ProviderName (Map ResourceName JSON.Value))
-            mDependencyOutputs =
-              for dependencyResults $ \resources -> for resources $ \case
-                CheckSuccess output -> Just output
-                CheckFailure _ -> Nothing
-
-        result <- case mDependencyOutputs of
-          Nothing -> do
-            logWarnN "Not checking because some dependency failed to check."
-            pure $
-              CheckFailure $
-                ProviderException $
-                  unwords
-                    [ "Could not check because a dependency failed to check:",
-                      T.unpack $ renderResourceId resourceId
-                    ]
-          Just dependencyOutputs -> do
-            specification <- nixEvalResourceSpecification dependencyOutputs resourceId
-            case mReference of
-              DoesNotExistLocally -> do
-                logInfoN $
-                  T.pack $
-                    unlines
-                      [ "Not checking because we had no local reference.",
-                        showJSON specification
-                      ]
-                pure $
-                  CheckFailure $
-                    ProviderException $
-                      unwords
-                        [ "Could not check because we had no local reference:",
-                          T.unpack $ renderResourceId resourceId
-                        ]
-              ExistsLocally reference -> do
-                logInfoN "Checking"
-                logDebugN "Check: Starting"
-                result <- lift $ runProviderCheck provider (resourceIdResource resourceId) specification reference
-                logDebugN "Check: Done"
-                pure result
-
-        -- Make the check result available for dependents to be checked as well
-        outputVar <- case M.lookup resourceId outputVars of
-          Nothing -> liftIO $ die $ unwords ["Somehow no outputvar for resource", T.unpack $ renderResourceId resourceId]
-          Just ov -> pure ov
-        putMVar outputVar result
-
-        -- Log the result
-        case result of
-          CheckFailure err ->
-            logErrorN $
-              T.pack $
-                unlines
-                  [ "Check failed:",
-                    displayException err
-                  ]
-          CheckSuccess _ -> logInfoN "Check succeeded."
-
-        pure (resourceId, result)
-
-getReferenceMap :: Map ProviderName (JSONProvider, Map ResourceName [ResourceId]) -> C (Map ResourceId (JSONProvider, [ResourceId], LocalState JSON.Value))
-getReferenceMap dependenciesWithProviders =
   fmap (M.fromList . concat) $
-    forConcurrently (M.toList dependenciesWithProviders) $ \(_, (provider@Provider {..}, resources)) ->
+    forConcurrently (M.toList dependenciesMap) $ \(providerName, (provider, resources)) -> do
       forConcurrently (M.toList resources) $ \(resourceName, dependencies) -> do
-        mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
+        let resourceId = ResourceId providerName resourceName
+        withResourceIdSource resourceId $ do
+          dependencyResults <- fmap (M.fromListWith M.union) $
+            forConcurrently dependencies $ \dependency -> do
+              case M.lookup dependency outputVars of
+                Nothing -> liftIO $ die $ unwords ["Unsatisfiable dependency", T.unpack $ renderResourceId dependency]
+                Just outputVar -> do
+                  logDebugN $
+                    T.pack $
+                      unwords
+                        [ "Waiting for the outputs of",
+                          T.unpack $ renderResourceId dependency
+                        ]
+                  dependencyResults <- readMVar outputVar
+                  pure (resourceIdProvider dependency, M.singleton (resourceIdResource dependency) dependencyResults)
 
-        let localState = case mLocalResource of
-              Nothing -> DoesNotExistLocally
-              Just (Entity _ resourceReference) -> ExistsLocally $ resourceReferenceReference resourceReference
+          logDebugN "All dependencies satisfied to try to check"
 
-        pure (ResourceId providerName resourceName, (provider, dependencies, localState))
+          let mDependencyOutputs :: Maybe (Map ProviderName (Map ResourceName JSON.Value))
+              mDependencyOutputs =
+                for dependencyResults $ \deps -> for deps $ \case
+                  CheckSuccess output -> Just output
+                  CheckFailure _ -> Nothing
+
+          result <- case mDependencyOutputs of
+            Nothing -> do
+              logWarnN "Not checking because some dependency failed to check."
+              pure $
+                CheckFailure $
+                  ProviderException $
+                    unwords
+                      [ "Could not check because a dependency failed to check:",
+                        T.unpack $ renderResourceId resourceId
+                      ]
+            Just dependencyOutputs -> do
+              specification <- nixEvalResourceSpecification dependencyOutputs resourceId
+              logInfoN "Checking"
+              logDebugN "Check: Starting"
+              result <- lift $ runProviderCheck provider (resourceIdResource resourceId) specification
+              logDebugN "Check: Done"
+              pure result
+
+          -- Make the check result available for dependents to be checked as well
+          outputVar <- case M.lookup resourceId outputVars of
+            Nothing -> liftIO $ die $ unwords ["Somehow no outputvar for resource", T.unpack $ renderResourceId resourceId]
+            Just ov -> pure ov
+          putMVar outputVar result
+
+          -- Log the result
+          case result of
+            CheckFailure err ->
+              logErrorN $
+                T.pack $
+                  unlines
+                    [ "Check failed:",
+                      displayException err
+                    ]
+            CheckSuccess _ -> logInfoN "Check succeeded."
+
+          pure (resourceId, result)

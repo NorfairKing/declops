@@ -37,7 +37,6 @@ type JSONProvider = Provider JSON.Value JSON.Value
 
 toJSONProvider ::
   ( FromJSON specification,
-    FromJSON output,
     ToJSON output
   ) =>
   Provider specification output ->

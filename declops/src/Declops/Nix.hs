@@ -22,7 +22,6 @@ import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Text as T
 import Data.Validity
-import Declops.DB
 import Declops.Env
 import Declops.Provider
 import Declops.Provider.ResourceId

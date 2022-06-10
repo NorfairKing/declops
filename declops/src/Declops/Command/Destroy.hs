@@ -12,8 +12,6 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Traversable
-import Database.Persist
-import Declops.DB
 import Declops.Env
 import Declops.Nix
 import Declops.Provider
@@ -95,23 +93,11 @@ declopsDestroyResults = do
                             T.unpack $ renderResourceId resourceId
                           ]
                 Just _ -> do
-                  mLocalResource <- runDB $ getBy $ UniqueResourceReference providerName resourceName
-                  case mLocalResource of
-                    Nothing -> do
-                      -- There was nothing to destroy, so we don't do anything but still
-                      -- consider it a success.
-                      -- If we were to fail here, the destroy command could not be
-                      -- idempotent.
-                      logInfoN "Not destroying because it doesn't exist locally."
-                      pure DestroySuccess
-                    Just (Entity resourceReferenceId resourceReference) -> do
-                      logInfoN "Destroying."
-                      logDebugN "Destroy: Starting"
-                      destroyResult <- lift $ runProviderDestroy provider resourceName (resourceReferenceReference resourceReference)
-                      logDebugN "Deleting local reference."
-                      runDB $ delete resourceReferenceId
-                      logDebugN "Destroy: Done"
-                      pure destroyResult
+                  logInfoN "Destroying."
+                  logDebugN "Destroy: Starting"
+                  destroyResult <- lift $ runProviderDestroy provider resourceName
+                  logDebugN "Destroy: Done"
+                  pure destroyResult
 
               resultVar <- case M.lookup resourceId resultVars of
                 Nothing -> liftIO $ die $ unwords ["Somehow no resultvar for resource", T.unpack $ renderResourceId resourceId]

@@ -10,26 +10,16 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
-  - aeson
-  - autodocodec
-  - autodocodec-yaml
   - declops
   - declops-provider
   - declops-provider-gen
-  - genvalidity-aeson
-  - genvalidity-path
   - genvalidity-sydtest
-  - genvalidity-sydtest-persistent
-  - genvalidity-text
   - monad-logger
   - mtl
-  - path
   - path-io
-  - persistent-sqlite
   - safe-coloured-text
   - sydtest
   - sydtest-persistent-sqlite
-  - text
 
 tests:
   declops-nix-test-test:
@@ -44,12 +34,10 @@ tests:
     - aeson
     - autodocodec
     - autodocodec-yaml
-    - containers
     - declops
     - declops-nix-test
     - declops-provider
     - declops-provider-gen
-    - declops-provider-local
     - genvalidity-aeson
     - genvalidity-containers
     - genvalidity-path
