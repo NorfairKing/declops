@@ -24,7 +24,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Aeson as JSON
 import Data.Aeson.Types as JSON
-import Data.Functor.Identity
 import Data.String
 import Data.Validity
 import Declops.Provider.ProviderName
@@ -34,16 +33,14 @@ import Path
 import System.Exit
 import UnliftIO
 
-type JSONProvider = Provider JSON.Value JSON.Value JSON.Value
+type JSONProvider = Provider JSON.Value JSON.Value
 
 toJSONProvider ::
   ( FromJSON specification,
-    FromJSON reference,
-    ToJSON reference,
     FromJSON output,
     ToJSON output
   ) =>
-  Provider specification reference output ->
+  Provider specification output ->
   JSONProvider
 toJSONProvider provider =
   let parseJSONOrErr :: FromJSON a => JSON.Value -> P a
@@ -52,21 +49,16 @@ toJSONProvider provider =
         Right result -> pure result
    in Provider
         { providerName = providerName provider,
-          providerQuery = \resourceName referenceJSON -> do
-            reference <- parseJSONOrErr referenceJSON
-            fmap toJSON <$> providerQuery provider resourceName reference,
-          providerApply = \resourceName specificationJSON applyContextJSON -> do
+          providerQuery = \resourceName -> do
+            fmap toJSON <$> providerQuery provider resourceName,
+          providerApply = \resourceName specificationJSON -> do
             specification <- parseJSONOrErr specificationJSON
-            applyContext <- bimapApplyContext parseJSONOrErr parseJSONOrErr applyContextJSON
-            dimapApplyResult toJSON toJSON
-              <$> providerApply provider resourceName specification applyContext,
-          providerCheck = \resourceName specificationJSON referenceJSON -> do
-            reference <- parseJSONOrErr referenceJSON
+            fmap toJSON <$> providerApply provider resourceName specification,
+          providerCheck = \resourceName specificationJSON -> do
             specification <- parseJSONOrErr specificationJSON
-            fmap toJSON <$> providerCheck provider resourceName specification reference,
-          providerDestroy = \resourceName referenceJSON -> do
-            reference <- parseJSONOrErr referenceJSON
-            providerDestroy provider resourceName reference
+            fmap toJSON <$> providerCheck provider resourceName specification,
+          providerDestroy = \resourceName -> do
+            providerDestroy provider resourceName
         }
 
 instance HasCodec () where
@@ -86,10 +78,9 @@ instance HasCodec (Path Abs File) where
 
 -- | A provider for a resource.
 --
--- A provider has three type parameters:
+-- A provider has two type parameters:
 --
 -- * An specification type, to declaratively specify what the resource should look like.
--- * A reference type, to refer to the resource in the local declops database.
 -- * An output type, to contain all the information about the remote resource.
 --
 -- In this context "local" means "wherever declops is run" and "remote" means "in reality".
@@ -97,59 +88,55 @@ instance HasCodec (Path Abs File) where
 -- A provider contains:
 --
 -- * A name, to reference it.
--- * A query function, to find out if the resource with the given local reference still exists remotely.
+-- * A query function, to find out if the resource with the given resource still exists remotely.
 -- * An apply function, to apply the current specification to reality
 -- * A check function, to find out if the remote resource still looks like what it should and works as it should.
 -- * A destroy function, to destroy a resource
 --
 -- Each of these functions MUST be idempotent so that they can be retried.
 -- Getting them all right is not an easy thing to do, which is why we provide a test suite.
-data Provider specification reference output = Provider
+data Provider specification output = Provider
   { providerName :: !ProviderName,
-    providerQuery :: !(ResourceName -> reference -> P (QueryResult output)),
-    providerApply :: !(ResourceName -> specification -> ApplyContext reference output -> P (ApplyResult reference output)),
-    providerCheck :: !(ResourceName -> specification -> reference -> P (CheckResult output)),
-    providerDestroy :: !(ResourceName -> reference -> P DestroyResult)
+    providerQuery :: !(ResourceName -> P (QueryResult output)),
+    providerApply :: !(ResourceName -> specification -> P (ApplyResult output)),
+    providerCheck :: !(ResourceName -> specification -> P (CheckResult output)),
+    providerDestroy :: !(ResourceName -> P DestroyResult)
   }
   deriving (Generic)
 
 runProviderQuery ::
-  Provider specification reference output ->
+  Provider specification output ->
   ResourceName ->
-  reference ->
   LoggingT IO (QueryResult output)
-runProviderQuery provider resourceName reference =
+runProviderQuery provider resourceName =
   runPCatchingExceptionsWith QueryFailure $
-    providerQuery provider resourceName reference
+    providerQuery provider resourceName
 
 runProviderApply ::
-  Provider specification reference output ->
+  Provider specification output ->
   ResourceName ->
   specification ->
-  ApplyContext reference output ->
-  LoggingT IO (ApplyResult reference output)
-runProviderApply provider resourceName specification applyContext =
+  LoggingT IO (ApplyResult output)
+runProviderApply provider resourceName specification =
   runPCatchingExceptionsWith ApplyFailure $
-    providerApply provider resourceName specification applyContext
+    providerApply provider resourceName specification
 
 runProviderCheck ::
-  Provider specification reference output ->
+  Provider specification output ->
   ResourceName ->
   specification ->
-  reference ->
   LoggingT IO (CheckResult output)
-runProviderCheck provider resourceName specification reference =
+runProviderCheck provider resourceName specification =
   runPCatchingExceptionsWith CheckFailure $
-    providerCheck provider resourceName specification reference
+    providerCheck provider resourceName specification
 
 runProviderDestroy ::
-  Provider specification reference output ->
+  Provider specification output ->
   ResourceName ->
-  reference ->
   LoggingT IO DestroyResult
-runProviderDestroy provider resourceName reference =
+runProviderDestroy provider resourceName =
   runPCatchingExceptionsWith DestroyFailure $
-    providerDestroy provider resourceName reference
+    providerDestroy provider resourceName
 
 newtype P a = P {unP :: LoggingT IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadLogger, MonadLoggerIO)
@@ -174,13 +161,8 @@ exceptionHandlersWith wrapper =
     Handler (\e -> return $ wrapper (ProviderException (displayException (e :: SomeException))))
   ]
 
-instance Validity (Provider specification reference output) where
+instance Validity (Provider specification output) where
   validate = trivialValidation
-
-data LocalState reference
-  = DoesNotExistLocally
-  | ExistsLocally !reference
-  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 data RemoteState output
   = DoesNotExistRemotely
@@ -194,59 +176,16 @@ data QueryResult output
   | QueryFailure !ProviderException
   deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
-type JSONApplyContext = ApplyContext JSON.Value JSON.Value
+type JSONApplyResult = ApplyResult JSON.Value
 
-data ApplyContext reference output
-  = DoesNotExistLocallyNorRemotely
-  | ExistsLocallyButNotRemotely !reference
-  | ExistsLocallyAndRemotely !reference !output
-  deriving (Show, Eq, Generic)
-
-dimapApplyContext ::
-  (reference1 -> reference2) ->
-  (output1 -> output2) ->
-  ApplyContext reference1 output1 ->
-  ApplyContext reference2 output2
-dimapApplyContext referenceFunc outputFunc = runIdentity . bimapApplyContext (pure . referenceFunc) (pure . outputFunc)
-
-bimapApplyContext ::
-  Applicative f =>
-  (reference1 -> f reference2) ->
-  (output1 -> f output2) ->
-  ApplyContext reference1 output1 ->
-  f (ApplyContext reference2 output2)
-bimapApplyContext referenceFunc outputFunc = \case
-  DoesNotExistLocallyNorRemotely -> pure DoesNotExistLocallyNorRemotely
-  ExistsLocallyButNotRemotely reference -> ExistsLocallyButNotRemotely <$> referenceFunc reference
-  ExistsLocallyAndRemotely reference output -> ExistsLocallyAndRemotely <$> referenceFunc reference <*> outputFunc output
-
-type JSONApplyResult = ApplyResult JSON.Value JSON.Value
-
-data ApplyResult reference output
-  = ApplySuccess !reference !output
+data ApplyResult output
+  = ApplySuccess !output
   | ApplyFailure !ProviderException
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
-dimapApplyResult ::
-  (reference1 -> reference2) ->
-  (output1 -> output2) ->
-  ApplyResult reference1 output1 ->
-  ApplyResult reference2 output2
-dimapApplyResult referenceFunc outputFunc = runIdentity . bimapApplyResult (pure . referenceFunc) (pure . outputFunc)
-
-bimapApplyResult ::
-  Applicative f =>
-  (reference1 -> f reference2) ->
-  (output1 -> f output2) ->
-  ApplyResult reference1 output1 ->
-  f (ApplyResult reference2 output2)
-bimapApplyResult referenceFunc outputFunc = \case
-  ApplySuccess reference output -> ApplySuccess <$> referenceFunc reference <*> outputFunc output
-  ApplyFailure err -> pure $ ApplyFailure err
-
-applyFailed :: ApplyResult reference output -> Bool
+applyFailed :: ApplyResult output -> Bool
 applyFailed = \case
-  ApplySuccess _ _ -> False
+  ApplySuccess _ -> False
   ApplyFailure _ -> True
 
 type JSONCheckResult = CheckResult JSON.Value

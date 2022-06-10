@@ -32,13 +32,6 @@ providerJSONSpec ::
     FromJSON input,
     ToJSON input,
     HasCodec input,
-    Show reference,
-    Eq reference,
-    GenValid reference,
-    Typeable reference,
-    FromJSON reference,
-    ToJSON reference,
-    HasCodec reference,
     Show output,
     Eq output,
     GenValid output,
@@ -47,7 +40,7 @@ providerJSONSpec ::
     ToJSON output,
     HasCodec output
   ) =>
-  Provider input reference output ->
+  Provider input output ->
   Spec
 providerJSONSpec provider = do
   jsonSpec @input
@@ -64,22 +57,18 @@ providerJSONSpec provider = do
      in pureGoldenTextFile fp (TE.decodeUtf8 (renderColouredSchemaViaCodec @output))
 
 localProviderSpec ::
-  forall input reference output i.
+  forall input output i.
   ( Show input,
     Eq input,
-    Validity reference,
-    Show reference,
-    Eq reference,
     Validity output,
     Show output,
     Eq output
   ) =>
   Bool ->
-  Provider input reference output ->
-  (i -> Gen reference) ->
+  Provider input output ->
   (i -> Gen input) ->
   SpecWith i
-localProviderSpec debug provider genReference genInput = do
+localProviderSpec debug provider genInput = do
   let name = providerName provider
   let evaluatingLog :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
       evaluatingLog loc source level str = do
@@ -92,17 +81,17 @@ localProviderSpec debug provider genReference genInput = do
         if debug
           then runStderrLoggingT func
           else runLoggingT func evaluatingLog
-  let query resourceName reference = runWithoutLogs $ runProviderQuery provider resourceName reference
-  let apply resourceName specification applyContext = runWithoutLogs $ runProviderApply provider resourceName specification applyContext
-  let check resourceName specification reference = runWithoutLogs $ runProviderCheck provider resourceName specification reference
-  let destroy resourceName reference = runWithoutLogs $ runProviderDestroy provider resourceName reference
+  let query resourceName = runWithoutLogs $ runProviderQuery provider resourceName
+  let apply resourceName specification applyContext = runWithoutLogs $ runProviderApply provider resourceName specification
+  let check resourceName specification reference = runWithoutLogs $ runProviderCheck provider resourceName specification
+  let destroy resourceName reference = runWithoutLogs $ runProviderDestroy provider resourceName
   let providerFail (ProviderException err) = expectationFailure err
   let requireQuerySuccess = \case
         QueryFailure err -> providerFail err
         QuerySuccess remoteState -> pure remoteState
   let requireApplySuccess = \case
         ApplyFailure err -> providerFail err
-        ApplySuccess reference output -> pure (reference, output)
+        ApplySuccess output -> pure output
   let requireCheckSuccess = \case
         CheckFailure err -> providerFail err
         CheckSuccess output -> pure output
@@ -113,17 +102,16 @@ localProviderSpec debug provider genReference genInput = do
   describe (T.unpack $ unProviderName name) $ do
     describe "query" $ do
       it "is idempotent if the resource does not exist remotely" $ \i ->
-        forAllValid $ \resourceName ->
-          forAll (genReference i) $ \reference -> do
-            remoteState1 <- query resourceName reference
-            remoteState2 <- query resourceName reference
-            remoteState2 `shouldBe` remoteState1
+        forAllValid $ \resourceName -> do
+          remoteState1 <- query resourceName
+          remoteState2 <- query resourceName
+          remoteState2 `shouldBe` remoteState1
 
     describe "apply" $ do
-      it "can create a resource if there is no local state" $ \i ->
+      it "can create a resource" $ \i ->
         forAllValid $ \resourceName ->
           forAll (genInput i) $ \input -> do
-            applyResult <- apply resourceName input DoesNotExistLocallyNorRemotely
+            applyResult <- apply resourceName input
             (reference, output) <- requireApplySuccess applyResult
             shouldBeValid reference
             shouldBeValid output
