@@ -1,7 +1,21 @@
 let
   nixpkgs = <nixpkgs>;
+  pkgs = import nixpkgs { };
   nPkgsv = import (nixpkgs + "/nixos/default.nix");
-  releaseF = import (nixpkgs + "/nixos/release.nix");
-  minimal-iso = (releaseF { supportedSystems = [ "x86_64-linux" ]; }).iso_minimal.x86_64-linux;
+  makeDiskImage = import (nixpkgs + "/nixos/lib/make-disk-image.nix");
+  configForConfiguration = configuration:
+    (nPkgsv {
+      inherit configuration;
+    }).config;
+  configuration = { ... }: {
+    imports = [
+      (nixpkgs + "/nixos/modules/virtualisation/virtualbox-image.nix")
+    ];
+  }; # Empty configuration
 in
-minimal-iso
+makeDiskImage {
+  inherit pkgs;
+  lib = pkgs.lib;
+  config = configForConfiguration configuration;
+  format = "vdi";
+}
