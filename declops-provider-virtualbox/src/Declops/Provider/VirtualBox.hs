@@ -26,6 +26,7 @@ import Declops.Provider
 import GHC.Generics (Generic)
 import Path
 import Path.IO
+import Paths_declops_provider_virtualbox
 import qualified System.Environment as System
 import System.Exit
 import System.Process.Typed
@@ -99,35 +100,46 @@ applyVirtualBox ::
   P (ApplyResult VirtualBoxOutput)
 applyVirtualBox resourceName VirtualBoxSpecification {..} = do
   mVMInfo <- getVMInfo resourceName
-  case mVMInfo of
+
+  -- Step 1. Make sure the VM exists
+  VirtualBoxInfo {..} <- case mVMInfo of
     Nothing -> do
       logDebugN "Creating a brand new VM."
-      (uuid, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
-      when virtualBoxSpecificationRunning $ turnOnVM resourceName
-      let output = VirtualBoxOutput {virtualBoxOutputUUID = uuid, virtualBoxOutputSettingsFile = settingsFile}
-      pure $ ApplySuccess output
-    Just VirtualBoxInfo {..} -> do
+      (_, _) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
+      mVMInfoAfter <- getVMInfo resourceName
+      case mVMInfoAfter of
+        Nothing -> fail "VM Should have existed by now."
+        Just vmInfo -> pure vmInfo
+    Just vmInfo@VirtualBoxInfo {..} -> do
       if isProperPrefixOf virtualBoxSpecificationBaseFolder virtualBoxInfoSettingsFile
-        then do
-          case (virtualBoxInfoVMState, virtualBoxSpecificationRunning) of
-            (VMStatePoweroff, False) -> logDebugN "VM is turned off, leaving it as-is."
-            (VMStateRunning, True) -> logDebugN "VM is already running, leaving it as-is."
-            (VMStateRunning, False) -> do
-              logDebugN "VM is deployed, and turned on, turning it off."
-              turnOffVM resourceName
-            (VMStatePoweroff, True) -> do
-              logDebugN "VM is not running yet, turning it on."
-              turnOnVM resourceName
-          let output = VirtualBoxOutput {virtualBoxOutputUUID = virtualBoxInfoUUID, virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile}
-          pure $ ApplySuccess output
+        then pure vmInfo
         else do
           logDebugN "VM is deployed a different settings file, recreating the virtual box."
           when (virtualBoxInfoVMState == VMStateRunning) $ turnOffVM resourceName
           unregisterVirtualBox resourceName
-          (newUUID, settingsFile) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
-          when virtualBoxSpecificationRunning $ turnOnVM resourceName
-          let output = VirtualBoxOutput {virtualBoxOutputUUID = newUUID, virtualBoxOutputSettingsFile = settingsFile}
-          pure $ ApplySuccess output
+          (_, _) <- makeVirtualBox resourceName virtualBoxSpecificationBaseFolder
+          mVMInfoAfter <- getVMInfo resourceName
+          case mVMInfoAfter of
+            Nothing -> fail "VM Should have existed by now."
+            Just vmInfo -> pure vmInfo
+
+  -- Step 2. Make sure that the VM is in the right state (turned on)
+  case (virtualBoxInfoVMState, virtualBoxSpecificationRunning) of
+    (VMStatePoweroff, False) -> logDebugN "VM is turned off, leaving it as-is."
+    (VMStateRunning, True) -> logDebugN "VM is already running, leaving it as-is."
+    (VMStateRunning, False) -> do
+      logDebugN "VM is deployed, and turned on, turning it off."
+      turnOffVM resourceName
+    (VMStatePoweroff, True) -> do
+      logDebugN "VM is not running yet, turning it on."
+      turnOnVM resourceName
+
+  let output =
+        VirtualBoxOutput
+          { virtualBoxOutputUUID = virtualBoxInfoUUID,
+            virtualBoxOutputSettingsFile = virtualBoxInfoSettingsFile
+          }
+  pure $ ApplySuccess output
 
 checkVirtualBox :: ResourceName -> VirtualBoxSpecification -> P (CheckResult VirtualBoxOutput)
 checkVirtualBox resourceName VirtualBoxSpecification {..} = do
