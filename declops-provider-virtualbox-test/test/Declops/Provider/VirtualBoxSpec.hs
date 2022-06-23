@@ -29,6 +29,7 @@ import Test.Syd.Validity
 
 spec :: Spec
 spec = do
+  virtualBoxSpecificationConfiguration <- resolveFile' "test_resources/minimal-configuration.nix"
   modifyMaxSuccess (`div` 50) $
     sequential $
       tempDirSpec tempDirTemplate $

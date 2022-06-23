@@ -34,7 +34,8 @@ import Text.Read
 
 data VirtualBoxSpecification = VirtualBoxSpecification
   { virtualBoxSpecificationRunning :: !Bool,
-    virtualBoxSpecificationBaseFolder :: !(Path Abs Dir)
+    virtualBoxSpecificationBaseFolder :: !(Path Abs Dir),
+    virtualBoxSpecificationConfiguration :: !(Path Abs File)
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec VirtualBoxSpecification)
@@ -47,6 +48,7 @@ instance HasCodec VirtualBoxSpecification where
       VirtualBoxSpecification
         <$> optionalFieldWithDefault "running" True "whether the vm should be running" .= virtualBoxSpecificationRunning
         <*> requiredField "base-folder" "base folder" .= virtualBoxSpecificationBaseFolder
+        <*> requiredField "configuration" "configuration" .= virtualBoxSpecificationConfiguration
 
 data VirtualBoxOutput = VirtualBoxOutput
   { virtualBoxOutputUUID :: !UUID,
@@ -121,7 +123,7 @@ applyVirtualBox resourceName VirtualBoxSpecification {..} = do
           mVMInfoAfter <- getVMInfo resourceName
           case mVMInfoAfter of
             Nothing -> fail "VM Should have existed by now."
-            Just vmInfo -> pure vmInfo
+            Just vmInfoAfter -> pure vmInfoAfter
 
   -- Step 2. Make sure that the VM is in the right state (turned on)
   case (virtualBoxInfoVMState, virtualBoxSpecificationRunning) of
