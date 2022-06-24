@@ -4,10 +4,16 @@ Declarative ops
 
 ## Current state
 
-Still playing around.
-Come back no sooner than when CI passes.
+Able to deploy local resources statelessly with good testing.
 
-To see what's already possible, you can dig into the `integration-tests` directory.
+Next steps:
+
+1. Get a local virtualbox deployment with a given nixos configuration set up and passing the current tests.
+2. Implement a `--build-only` dry-run that already builds the nixos configs.
+3. Try to implement remote providers like AWS EC2 instances.
+
+Please come talk to me if you or your company would like to help out with this project.
+Without extra support, this could take ages to get into working shape.
 
 ## Goals
 

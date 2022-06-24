@@ -6,3 +6,6 @@
 [37mbase-folder[m: # [31mrequired[m
   # base folder
   [33m<string>[m
+[37mconfiguration[m: # [31mrequired[m
+  # configuration
+  [33m<string>[m

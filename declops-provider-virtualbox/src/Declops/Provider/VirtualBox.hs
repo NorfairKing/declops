@@ -26,7 +26,6 @@ import Declops.Provider
 import GHC.Generics (Generic)
 import Path
 import Path.IO
-import Paths_declops_provider_virtualbox
 import qualified System.Environment as System
 import System.Exit
 import System.Process.Typed
