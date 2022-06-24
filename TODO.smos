@@ -1,0 +1,39 @@
+version: 2.0.0
+value:
+- entry: Providers
+  forest:
+  - entry: Virtualbox
+    forest:
+    - Get a disk attached to the virtualbox
+    - Make sure the disk has the .vdi image of the nixos configuration that is specified
+    - header: Argument idea
+      contents: |-
+        configuration = ./configuration.nix
+
+        When using arguments from declops:
+
+        configuration-function = ./make-configuration.nix
+        configuration-arguments = { arbitrary json blob}
+    - Allow headfull(?) and headless boots
+  - Design access control configuration and how it interacts with the query command
+  - header: Design a way to find and remove obsolete resources
+    contents: |-
+      This might coincide with the todo above.
+      We may want to turn query from
+      query :: ResourceName -> P (QueryResult output)
+      into
+      query :: AccessControl -> P (QueryResult (Map Resource output))
+      but we have to think about whether we maybe want per-resource access control instead?
+      Lots of tradeoffs!
+- entry: Cleanups
+  forest:
+  - Get rid of all die's
+  - Detect cycles in the dependency graph
+  - Implement a --build-only dry-run
+  - Consider also allowing Dhall instead of only nix?
+  - Tests for nice error messages
+  - header: Tests with faulty providers
+    contents: |-
+      Maybe we want to use custom faulty providers for this?
+      Ideally not, but let's see what the tradeoff will be like.
+  - Show a nice error when you spell "dependencies" wrong in a deployment
